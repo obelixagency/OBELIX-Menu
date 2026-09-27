@@ -165,6 +165,14 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
   await fs.rm(packageDir, { recursive: true, force: true });
   await copyDir(templateDir, packageDir);
 
+  // Drop template sample uploads so the package only ships this client's assets
+  const uploadsDest = path.join(packageDir, "public", "uploads");
+  await fs.mkdir(uploadsDest, { recursive: true });
+  for (const entry of await fs.readdir(uploadsDest)) {
+    if (entry === ".gitkeep") continue;
+    await fs.rm(path.join(uploadsDest, entry), { force: true });
+  }
+
   const brand = {
     displayName: client.displayName,
     slug: client.slug,

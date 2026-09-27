@@ -83,7 +83,9 @@ export default function NewClientPage() {
         }
       }
 
-      router.push(`/clients/${data.client.id}`);
+      // Hard navigate so logo/background uploads + Fast Refresh cannot cancel soft push
+      window.location.assign(`/clients/${data.client.id}`);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ غير متوقع");
     } finally {
