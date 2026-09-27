@@ -1,0 +1,17 @@
+{
+  "name": "obelix-menu-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OBELIX Menu System — agency dashboard that generates standalone branded client menu packages",
+  "scripts": {
+    "dev:agency": "pnpm --filter @obelix/agency dev",
+    "dev:client": "pnpm --filter @obelix/client-template dev",
+    "build:agency": "pnpm --filter @obelix/agency build",
+    "build:client": "pnpm --filter @obelix/client-template build",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.3"
+}

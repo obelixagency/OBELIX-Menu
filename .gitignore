@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+dist
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+apps/agency/data/clients.json
+apps/agency/data/uploads/*
+!apps/agency/data/uploads/.gitkeep
+apps/agency/generated/*
+!apps/agency/generated/.gitkeep
+*.zip
+.turbo
+.vercel

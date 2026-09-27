@@ -1,0 +1,17 @@
+# Caddy — reverse proxy examples for OBELIX subdomains
+# Place on the VPS that terminates TLS / has public ports 80/443.
+
+# Agency dashboard (Mohamed's host)
+agency.example.com {
+	reverse_proxy 127.0.0.1:43121
+}
+
+# One client package (after docker compose up on that host / port)
+client.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Another client on the same host, different port
+another.example.com {
+	reverse_proxy 127.0.0.1:3001
+}

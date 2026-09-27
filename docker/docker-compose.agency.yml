@@ -1,0 +1,15 @@
+# Build from monorepo root so export can copy packages/client-template
+services:
+  agency:
+    build:
+      context: ..
+      dockerfile: docker/agency.Dockerfile
+    ports:
+      - "${PORT:-43121}:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ../apps/agency/data:/app/apps/agency/data
+      - ../apps/agency/generated:/app/apps/agency/generated
+      - ../packages/client-template:/app/packages/client-template:ro
+    restart: unless-stopped

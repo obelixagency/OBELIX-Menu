@@ -1,0 +1,24 @@
+{
+  "displayName": "قهوة البيت",
+  "slug": "qahwa-elbeit",
+  "logoUrl": "/uploads/logo-qahwa.svg",
+  "colors": {
+    "primary": "#5C3A1E",
+    "accent": "#D4A017",
+    "surface": "#F7F1E8"
+  },
+  "font": "Cairo",
+  "currency": "EGP",
+  "domain": "menu.qahwa-elbeit.example.com",
+  "dashboardPassword": "obelix123",
+  "languages": "both",
+  "notificationEmail": null,
+  "menuBackgroundUrl": "/uploads/menu-bg-qahwa.jpg",
+  "extensions": {
+    "ordering": {
+      "enabled": false,
+      "provider": null,
+      "note": "v1 view-only — enable WhatsApp/cart in a later release"
+    }
+  }
+}

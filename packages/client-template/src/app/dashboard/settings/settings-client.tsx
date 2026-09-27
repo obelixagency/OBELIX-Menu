@@ -1,0 +1,177 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+export default function SettingsClient() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [bgUrl, setBgUrl] = useState<string | null>(null);
+  const [currency, setCurrency] = useState("EGP");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/brand")
+      .then((r) => r.json())
+      .then((d) => {
+        setEmail(d.brand?.notificationEmail || "");
+        setBgUrl(d.brand?.menuBackgroundUrl || null);
+        setCurrency(d.brand?.currency || "EGP");
+      });
+  }, []);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/brand", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notificationEmail: email,
+          menuBackgroundUrl: bgUrl,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 401) {
+        router.push("/dashboard/login");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "فشل");
+      setMsg("تم الحفظ");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onBgUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const up = await fetch("/api/upload", { method: "POST", body: fd });
+      const upData = await up.json();
+      if (up.status === 401) {
+        router.push("/dashboard/login");
+        return;
+      }
+      if (!up.ok) throw new Error(upData.error || "فشل الرفع");
+      setBgUrl(upData.url);
+      await fetch("/api/brand", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menuBackgroundUrl: upData.url }),
+      });
+      setMsg("تم تحديث خلفية المنيو");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-bold">إعدادات المنيو</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">إيميل إشعارات Rate Form</CardTitle>
+          <CardDescription>
+            يُرسل كل تقييم جديد لهذا العنوان إن وُجدت إعدادات SMTP / Resend على
+            السيرفر. بدونها تُحفظ التقييمات في لوحة التحكم فقط.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={save} className="space-y-3">
+            <div>
+              <Label htmlFor="email">البريد</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                dir="ltr"
+                className="text-left"
+                placeholder="owner@cafe.com"
+              />
+            </div>
+            <p className="text-xs text-black/45">
+              العملة الحالية من الوكالة: <strong dir="ltr">{currency}</strong>
+            </p>
+            <Button type="submit" disabled={saving}>
+              {saving ? "…" : "حفظ"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">خلفية المنيو</CardTitle>
+          <CardDescription>
+            اختياري — صورة خلفية كاملة مع طبقة شفافة للقراءة. اتركها فارغة لاستخدام
+            لون السطح من البراند.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {bgUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={bgUrl}
+              alt=""
+              className="aspect-video w-full max-w-md rounded-lg object-cover"
+            />
+          )}
+          <Input
+            type="file"
+            accept="image/*"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onBgUpload(f);
+            }}
+          />
+          {bgUrl && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                setBgUrl(null);
+                await fetch("/api/brand", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ menuBackgroundUrl: null }),
+                });
+                setMsg("أُزيلت الخلفية");
+              }}
+            >
+              إزالة الخلفية
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {msg && <p className="text-sm text-emerald-700">{msg}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}

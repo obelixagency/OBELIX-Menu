@@ -1,0 +1,21 @@
+services:
+  menu:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-obelix123}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+    env_file:
+      - .env
+    volumes:
+      # Keep menu edits + uploads across restarts
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+    restart: unless-stopped

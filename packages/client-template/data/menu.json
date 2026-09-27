@@ -1,0 +1,239 @@
+{
+  "categories": [
+    {
+      "id": "cat-drinks",
+      "name": "مشروبات",
+      "nameEn": "Drinks",
+      "parentId": null,
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "cat-hot",
+      "name": "مشروبات ساخنة",
+      "nameEn": "Hot Drinks",
+      "parentId": "cat-drinks",
+      "sortOrder": 1,
+      "active": true,
+      "discountType": "percent",
+      "discountValue": 10
+    },
+    {
+      "id": "cat-cold",
+      "name": "مشروبات باردة",
+      "nameEn": "Cold Drinks",
+      "parentId": "cat-drinks",
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "cat-food",
+      "name": "أكل",
+      "nameEn": "Food",
+      "parentId": null,
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "cat-breakfast",
+      "name": "فطور",
+      "nameEn": "Breakfast",
+      "parentId": "cat-food",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "cat-sweets",
+      "name": "حلويات",
+      "nameEn": "Desserts",
+      "parentId": "cat-food",
+      "sortOrder": 2,
+      "active": true
+    }
+  ],
+  "products": [
+    {
+      "id": "p1",
+      "categoryId": "cat-hot",
+      "name": "إسبريسو",
+      "nameEn": "Espresso",
+      "description": "شوت مزدوج من بن محمّص يومياً",
+      "descriptionEn": "Double shot of freshly roasted beans",
+      "price": 45,
+      "discountType": "fixed",
+      "discountValue": 5,
+      "image": null,
+      "available": true,
+      "featured": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "p2",
+      "categoryId": "cat-hot",
+      "name": "كابتشينو",
+      "nameEn": "Cappuccino",
+      "description": "رغوة حليب كثيفة مع إسبريسو",
+      "descriptionEn": "Dense milk foam with espresso",
+      "price": 60,
+      "image": null,
+      "available": true,
+      "featured": true,
+      "sortOrder": 2
+    },
+    {
+      "id": "p3",
+      "categoryId": "cat-hot",
+      "name": "قهوة تركي",
+      "nameEn": "Turkish Coffee",
+      "description": "على الرمل، سادة أو مضبوطة أو زيادة",
+      "descriptionEn": "Sand-brewed, plain or sweet",
+      "price": 35,
+      "image": null,
+      "available": true,
+      "featured": false,
+      "sortOrder": 3
+    },
+    {
+      "id": "p4",
+      "categoryId": "cat-hot",
+      "name": "شاي كشري بالنعناع",
+      "nameEn": "Mint Koshary Tea",
+      "description": "شاي ثقيل زي البيوت",
+      "descriptionEn": "Strong house-style tea with mint",
+      "price": 25,
+      "image": null,
+      "available": true,
+      "featured": false,
+      "sortOrder": 4
+    },
+    {
+      "id": "p6",
+      "categoryId": "cat-cold",
+      "name": "آيس لاتيه",
+      "nameEn": "Iced Latte",
+      "description": "لاتيه مثلّج — مناسب لحرّ القاهرة",
+      "descriptionEn": "Iced latte for Cairo heat",
+      "price": 70,
+      "image": null,
+      "available": true,
+      "featured": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "p8",
+      "categoryId": "cat-cold",
+      "name": "عصير مانجو بلدي",
+      "nameEn": "Fresh Mango",
+      "description": "مانجو إسماعيلية بدون سكر مضاف",
+      "descriptionEn": "Ismailia mango, no added sugar",
+      "price": 55,
+      "image": null,
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    },
+    {
+      "id": "p10",
+      "categoryId": "cat-breakfast",
+      "name": "فول بزيت الزيتون",
+      "nameEn": "Foul",
+      "description": "فول مدمس مع زيت زيتون وكمون",
+      "descriptionEn": "Fava beans with olive oil and cumin",
+      "price": 45,
+      "image": null,
+      "available": true,
+      "featured": false,
+      "sortOrder": 1
+    },
+    {
+      "id": "p12",
+      "categoryId": "cat-breakfast",
+      "name": "كرواسون زبدة",
+      "nameEn": "Butter Croissant",
+      "description": "طازج من الفرن كل صباح",
+      "descriptionEn": "Fresh from the oven every morning",
+      "price": 50,
+      "discountType": "percent",
+      "discountValue": 15,
+      "image": null,
+      "available": true,
+      "featured": true,
+      "sortOrder": 2
+    },
+    {
+      "id": "p13",
+      "categoryId": "cat-sweets",
+      "name": "بسبوسة بالقشطة",
+      "nameEn": "Basbousa",
+      "description": "بسبوسة بيتية غنية بالسمن",
+      "descriptionEn": "Homestyle basbousa with cream",
+      "price": 40,
+      "image": null,
+      "available": true,
+      "featured": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "p14",
+      "categoryId": "cat-sweets",
+      "name": "كنافة بالقشطة",
+      "nameEn": "Kunafa",
+      "description": "حصة فردية — سخنة عند الطلب",
+      "descriptionEn": "Single portion — hot on request",
+      "price": 65,
+      "image": null,
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    }
+  ],
+  "contacts": [
+    {
+      "id": "c-wa",
+      "type": "whatsapp",
+      "label": "واتساب",
+      "value": "201000000000",
+      "active": true
+    },
+    {
+      "id": "c-ig",
+      "type": "instagram",
+      "label": "Instagram",
+      "value": "https://instagram.com/qahwa_elbeit",
+      "active": true
+    },
+    {
+      "id": "c-phone",
+      "type": "phone",
+      "label": "تليفون",
+      "value": "+201000000000",
+      "active": true
+    }
+  ],
+  "reviews": [
+    {
+      "id": "r1",
+      "rating": 5,
+      "name": "أحمد",
+      "comment": "قهوة ممتازة وأجواء هادية — رجّع تاني أكيد",
+      "productId": "p1",
+      "createdAt": "2026-09-20T10:00:00.000Z",
+      "visible": true
+    },
+    {
+      "id": "r2",
+      "rating": 4,
+      "name": "سارة",
+      "comment": "البسبوسة طعم بيوت، والسعر مناسب",
+      "productId": "p13",
+      "createdAt": "2026-09-22T14:30:00.000Z",
+      "visible": true
+    }
+  ],
+  "banners": [],
+  "meta": {
+    "cafe": "قهوة البيت",
+    "city": "القاهرة",
+    "note": "منيو تجريبي عربي حقيقي لـ OBELIX Menu v1"
+  }
+}
