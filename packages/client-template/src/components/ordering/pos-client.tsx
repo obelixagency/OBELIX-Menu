@@ -14,6 +14,18 @@ import {
   downloadEscPosFile,
   printThermalReceipt,
 } from "@/lib/thermal-print";
+import { withBasePath } from "@/lib/base-path";
+import {
+  enqueuePending,
+  isNetworkError,
+  listPending,
+  loadCatalogCache,
+  makeLocalCode,
+  removePending,
+  saveCatalogCache,
+  updatePending,
+  type PendingPosOrder,
+} from "@/lib/pos-offline-queue";
 
 type CatalogProduct = {
   id: string;
@@ -84,6 +96,13 @@ const COPY = {
     closeShift: "Close shift",
     shiftOpen: "Shift open",
     shiftClosed: "No open shift",
+    offline: "Offline — sales queue locally",
+    online: "Online",
+    pendingSync: "pending to sync",
+    syncNow: "Sync now",
+    syncing: "Syncing…",
+    queued: "Saved offline",
+    offlineCatalog: "Using cached menu",
   },
   ar: {
     all: "الكل",
@@ -111,6 +130,13 @@ const COPY = {
     closeShift: "تقفيل وردية",
     shiftOpen: "وردية مفتوحة",
     shiftClosed: "مفيش وردية",
+    offline: "أوفلاين — البيع بيتحفظ محلياً",
+    online: "متصل",
+    pendingSync: "في انتظار المزامنة",
+    syncNow: "زامن الآن",
+    syncing: "جاري المزامنة…",
+    queued: "اتحفظ أوفلاين",
+    offlineCatalog: "المنيو من الكاش",
   },
 } as const;
 
@@ -143,56 +169,179 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   >([]);
   const [branchId, setBranchId] = useState<string>("");
   const [multiBranch, setMultiBranch] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [pending, setPending] = useState<PendingPosOrder[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [usingCache, setUsingCache] = useState(false);
 
-  const load = useCallback(async (preferredBranch?: string) => {
-    setLoading(true);
-    setError(null);
+  function applyCatalog(data: {
+    brand?: BrandInfo;
+    categories?: CatalogCategory[];
+    products?: CatalogProduct[];
+    tables?: CatalogTable[];
+    features?: { tableOrderingEnabled?: boolean; multiBranch?: boolean };
+    branches?: { id: string; name: string; nameEn?: string; slug: string }[];
+    branchId?: string;
+  }) {
+    if (data.brand) setBrand(data.brand);
+    setCategories(data.categories || []);
+    setProducts(data.products || []);
+    setTables(data.tables || []);
+    setTableOrdering(Boolean(data.features?.tableOrderingEnabled));
+    setMultiBranch(Boolean(data.features?.multiBranch));
+    setBranches(data.branches || []);
+    if (data.branchId) setBranchId(data.branchId);
+    const mode = (data.brand?.languages || "both") as LanguageMode;
+    setLocale(mode === "ar" ? "ar" : "en");
+  }
+
+  const refreshPending = useCallback(async () => {
     try {
-      const qs = preferredBranch
-        ? `?branch=${encodeURIComponent(preferredBranch)}`
-        : "";
-      const [catRes, shiftRes] = await Promise.all([
-        fetch(`/api/pos/catalog${qs}`),
-        fetch("/api/shifts"),
-      ]);
-      const data = await catRes.json();
-      if (!catRes.ok) throw new Error(data.error || "Failed");
-      setBrand(data.brand);
-      setCategories(data.categories || []);
-      setProducts(data.products || []);
-      setTables(data.tables || []);
-      setTableOrdering(Boolean(data.features?.tableOrderingEnabled));
-      setMultiBranch(Boolean(data.features?.multiBranch));
-      setBranches(data.branches || []);
-      if (data.branchId) setBranchId(data.branchId);
-      const mode = (data.brand?.languages || "both") as LanguageMode;
-      setLocale(mode === "ar" ? "ar" : "en");
-      if (shiftRes.ok) {
-        const s = await shiftRes.json();
-        setShiftOpen(Boolean(s.open));
-      } else {
-        setShiftOpen(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setLoading(false);
+      setPending(await listPending());
+    } catch {
+      /* IDB unavailable */
     }
   }, []);
 
+  const syncQueue = useCallback(async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    setSyncing(true);
+    try {
+      const rows = await listPending();
+      for (const row of rows) {
+        if (row.status === "syncing") continue;
+        await updatePending(row.localId, { status: "syncing", lastError: undefined });
+        try {
+          const res = await fetch(withBasePath("/api/pos/orders"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paymentMethod: row.paymentMethod,
+              tableId: row.tableId,
+              guestNote: row.guestNote,
+              branchId: row.branchId,
+              lines: row.lines,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            await updatePending(row.localId, {
+              status: "failed",
+              lastError: data.error || `HTTP ${res.status}`,
+            });
+            continue;
+          }
+          await removePending(row.localId);
+          const code = data.order?.code as string | undefined;
+          if (code) {
+            setLastCode(code);
+            setLastReceipt({
+              code,
+              method: row.paymentMethod,
+              lines: row.receiptLines,
+              total: row.total,
+            });
+          }
+        } catch (err) {
+          await updatePending(row.localId, {
+            status: "pending",
+            lastError: err instanceof Error ? err.message : "sync failed",
+          });
+          if (isNetworkError(err)) break;
+        }
+      }
+      await refreshPending();
+    } finally {
+      setSyncing(false);
+    }
+  }, [refreshPending]);
+
+  const load = useCallback(
+    async (preferredBranch?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const qs = preferredBranch
+          ? `?branch=${encodeURIComponent(preferredBranch)}`
+          : "";
+        const [catRes, shiftRes] = await Promise.all([
+          fetch(withBasePath(`/api/pos/catalog${qs}`)),
+          fetch(withBasePath("/api/shifts")),
+        ]);
+        const data = await catRes.json();
+        if (!catRes.ok) throw new Error(data.error || "Failed");
+        applyCatalog(data);
+        setUsingCache(false);
+        await saveCatalogCache(
+          (data.branchId as string) || preferredBranch || "default",
+          data
+        );
+        if (shiftRes.ok) {
+          const s = await shiftRes.json();
+          setShiftOpen(Boolean(s.open));
+        } else {
+          setShiftOpen(null);
+        }
+      } catch (err) {
+        const cached = await loadCatalogCache(preferredBranch).catch(() => null);
+        if (cached?.payload && typeof cached.payload === "object") {
+          applyCatalog(cached.payload as Parameters<typeof applyCatalog>[0]);
+          setUsingCache(true);
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : "Error");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     load();
-  }, [load]);
+    refreshPending();
+  }, [load, refreshPending]);
+
+  useEffect(() => {
+    function onOnline() {
+      setOnline(true);
+      syncQueue().then(() => load());
+    }
+    function onOffline() {
+      setOnline(false);
+    }
+    setOnline(typeof navigator === "undefined" ? true : navigator.onLine);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [syncQueue, load]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+    const swUrl = withBasePath("/pos-sw.js");
+    const scope = withBasePath("/") || "/";
+    navigator.serviceWorker.register(swUrl, { scope }).catch(() => undefined);
+  }, []);
 
   async function switchBranch(id: string) {
     setBranchId(id);
     setLines([]);
     setLastCode(null);
-    await fetch("/api/branches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "select", branchId: id }),
-    });
+    try {
+      await fetch(withBasePath("/api/branches"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "select", branchId: id }),
+      });
+    } catch {
+      /* offline — still load cached branch catalog if any */
+    }
     await load(id);
   }
 
@@ -271,24 +420,73 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     );
   }
 
+  function applyLocalStockDeduct(sold: { itemId: string; qty: number }[]) {
+    setProducts((prev) =>
+      prev.map((p) => {
+        const hit = sold.find((s) => s.itemId === p.id);
+        if (!hit || typeof p.stockQty !== "number") return p;
+        const next = Math.max(0, p.stockQty - hit.qty);
+        return { ...p, stockQty: next, outOfStock: next <= 0 };
+      })
+    );
+  }
+
   async function closeTicket(method: PaymentMethod) {
     if (!lines.length || closing) return;
     setClosing(true);
     setPayError(null);
     const snapshot = { lines: [...lines], total };
+    const body = {
+      paymentMethod: method,
+      tableId: tableId || null,
+      guestNote: note || undefined,
+      branchId: branchId || undefined,
+      lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+    };
+
+    async function queueOffline(reason?: string) {
+      const localCode = makeLocalCode();
+      const localId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `local-${Date.now()}`;
+      await enqueuePending({
+        localId,
+        localCode,
+        createdAt: new Date().toISOString(),
+        paymentMethod: method,
+        tableId: body.tableId,
+        guestNote: body.guestNote,
+        branchId: body.branchId,
+        lines: body.lines,
+        receiptLines: snapshot.lines,
+        total: snapshot.total,
+      });
+      applyLocalStockDeduct(body.lines);
+      setLastCode(localCode);
+      setLastReceipt({
+        code: localCode,
+        method,
+        lines: snapshot.lines,
+        total: snapshot.total,
+      });
+      setLines([]);
+      setNote("");
+      await refreshPending();
+      if (reason) setPayError(null);
+    }
+
     try {
-      const res = await fetch("/api/pos/orders", {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueOffline();
+        return;
+      }
+      const res = await fetch(withBasePath("/api/pos/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentMethod: method,
-          tableId: tableId || null,
-          guestNote: note || undefined,
-          branchId: branchId || undefined,
-          lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
-        }),
+        body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed");
       const code = data.order?.code || null;
       setLastCode(code);
@@ -302,10 +500,17 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       }
       setLines([]);
       setNote("");
-      // refresh stock badges
       load();
     } catch (err) {
-      setPayError(err instanceof Error ? err.message : "Error");
+      if (isNetworkError(err)) {
+        try {
+          await queueOffline();
+        } catch (qErr) {
+          setPayError(qErr instanceof Error ? qErr.message : "Offline queue failed");
+        }
+      } else {
+        setPayError(err instanceof Error ? err.message : "Error");
+      }
     } finally {
       setClosing(false);
     }
@@ -315,7 +520,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     setShiftBusy(true);
     setPayError(null);
     try {
-      const res = await fetch("/api/shifts", {
+      const res = await fetch(withBasePath("/api/shifts"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, openingCash: 0 }),
@@ -513,6 +718,38 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         </div>
       )}
 
+      {(!online || pending.length > 0 || usingCache) && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 px-3 py-2 sm:px-4"
+          style={{
+            background: online ? "#eef6ff" : "#fff3e0",
+          }}
+        >
+          <p className="text-xs font-medium sm:text-sm">
+            {online ? t.online : t.offline}
+            {usingCache ? ` · ${t.offlineCatalog}` : ""}
+            {pending.length > 0
+              ? ` · ${pending.length} ${t.pendingSync}`
+              : ""}
+            {pending.some((p) => p.status === "failed")
+              ? locale === "ar"
+                ? " · فيه طلبات فشلت المزامنة"
+                : " · some sync failed"
+              : ""}
+          </p>
+          {pending.length > 0 && online && (
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={() => syncQueue().then(() => load())}
+              className="min-h-9 rounded-md border border-black/15 bg-white px-3 text-xs font-bold disabled:opacity-40"
+            >
+              {syncing ? t.syncing : t.syncNow}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-0 lg:flex-row">
         {/* Catalog */}
         <section className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
@@ -644,7 +881,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                 style={{ background: `${accent}33` }}
               >
                 <p className="text-xs font-medium">
-                  {t.closed} — {t.code} {lastCode}
+                  {lastCode.startsWith("OFF-") ? t.queued : t.closed} — {t.code}{" "}
+                  {lastCode}
                 </p>
                 {lastReceipt && (
                   <div className="flex shrink-0 gap-1">
