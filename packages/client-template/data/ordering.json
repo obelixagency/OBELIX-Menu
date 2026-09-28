@@ -51,7 +51,14 @@
   "settings": {
     "guestNoteEnabled": true,
     "maxItemsPerOrder": 50,
-    "soundEnabled": true
+    "soundEnabled": true,
+    "alerts": {
+      "alertOnDelivery": true,
+      "alertOnDineIn": false,
+      "whatsappPhone": "",
+      "callMeBotApiKey": "",
+      "webhookUrl": ""
+    }
   },
   "orders": []
 }
