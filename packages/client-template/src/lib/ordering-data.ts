@@ -81,6 +81,13 @@ export type OrderingSettings = {
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
   soundEnabled: boolean;
+  alerts?: {
+    alertOnDelivery: boolean;
+    alertOnDineIn: boolean;
+    whatsappPhone: string;
+    callMeBotApiKey: string;
+    webhookUrl: string;
+  };
 };
 
 export type OrderingStore = {
@@ -121,8 +128,27 @@ function emptyStore(): OrderingStore {
       guestNoteEnabled: true,
       maxItemsPerOrder: 50,
       soundEnabled: true,
+      alerts: {
+        alertOnDelivery: true,
+        alertOnDineIn: false,
+        whatsappPhone: "",
+        callMeBotApiKey: "",
+        webhookUrl: "",
+      },
     },
     orders: [],
+  };
+}
+
+function normalizeAlerts(
+  raw?: Partial<NonNullable<OrderingSettings["alerts"]>> | null
+): NonNullable<OrderingSettings["alerts"]> {
+  return {
+    alertOnDelivery: raw?.alertOnDelivery !== false,
+    alertOnDineIn: Boolean(raw?.alertOnDineIn),
+    whatsappPhone: String(raw?.whatsappPhone || "").trim(),
+    callMeBotApiKey: String(raw?.callMeBotApiKey || "").trim(),
+    webhookUrl: String(raw?.webhookUrl || "").trim(),
   };
 }
 
@@ -141,6 +167,7 @@ function normalizeStore(raw: Partial<OrderingStore>): OrderingStore {
           ? Math.min(200, Math.floor(Number(raw.settings?.maxItemsPerOrder)))
           : 50,
       soundEnabled: raw.settings?.soundEnabled !== false,
+      alerts: normalizeAlerts(raw.settings?.alerts),
     },
     orders: Array.isArray(raw.orders) ? raw.orders : [],
   };
@@ -177,6 +204,7 @@ export async function getOrderingSettings(): Promise<OrderingSettings> {
     maxItemsPerOrder:
       feat?.maxItemsPerOrder || store.settings.maxItemsPerOrder || 50,
     soundEnabled: store.settings.soundEnabled,
+    alerts: normalizeAlerts(store.settings.alerts),
   };
 }
 
@@ -184,9 +212,17 @@ export async function updateOrderingSettings(
   patch: Partial<OrderingSettings>
 ): Promise<OrderingSettings> {
   const store = await ensureStore();
-  store.settings = { ...store.settings, ...patch };
+  const nextAlerts =
+    patch.alerts !== undefined
+      ? normalizeAlerts({ ...store.settings.alerts, ...patch.alerts })
+      : normalizeAlerts(store.settings.alerts);
+  store.settings = {
+    ...store.settings,
+    ...patch,
+    alerts: nextAlerts,
+  };
   await saveStore(store);
-  return store.settings;
+  return getOrderingSettings();
 }
 
 /* ─── Zones ─── */
@@ -557,6 +593,10 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     store.orders = store.orders.slice(0, 500);
   }
   await saveStore(store);
+  // Staff alerts (WhatsApp / webhook) — never block the guest response
+  void import("@/lib/order-alerts").then(({ notifyNewOrder }) =>
+    notifyNewOrder(order)
+  );
   return order;
 }
 

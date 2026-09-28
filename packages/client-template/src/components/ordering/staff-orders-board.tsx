@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
+import { withBasePath } from "@/lib/base-path";
+import { whatsappClickUrl } from "@/lib/order-alerts";
 import type { OrderStatus, Station } from "@/lib/extensions/ordering";
 
 type Order = {
@@ -57,6 +59,8 @@ export function StaffOrdersBoard({
   const [channelFilter, setChannelFilter] = useState<
     "all" | "delivery" | "dine_in" | "pos"
   >("all");
+  const [storeName, setStoreName] = useState("OBELIX");
+  const [staffWaPhone, setStaffWaPhone] = useState("");
   const knownNew = useRef<Set<string>>(new Set());
   const audioCtx = useRef<AudioContext | null>(null);
 
@@ -98,9 +102,11 @@ export function StaffOrdersBoard({
     try {
       const q = new URLSearchParams({ open: "1" });
       if (stationFilter) q.set("station", stationFilter);
-      const res = await fetch(`/api/orders?${q}`, { cache: "no-store" });
+      const res = await fetch(withBasePath(`/api/orders?${q}`), {
+        cache: "no-store",
+      });
       if (res.status === 401) {
-        window.location.href = "/dashboard/login";
+        window.location.href = withBasePath("/dashboard/login");
         return;
       }
       const data = await res.json();
@@ -130,8 +136,23 @@ export function StaffOrdersBoard({
     return () => clearInterval(t);
   }, [load]);
 
+  useEffect(() => {
+    Promise.all([
+      fetch(withBasePath("/api/brand")).then((r) => r.json()).catch(() => null),
+      fetch(withBasePath("/api/ordering/config"))
+        .then((r) => r.json())
+        .catch(() => null),
+    ]).then(([brandData, cfg]) => {
+      if (brandData?.brand?.displayName) {
+        setStoreName(brandData.brand.displayName);
+      }
+      const phone = cfg?.settings?.alerts?.whatsappPhone;
+      if (phone) setStaffWaPhone(phone);
+    });
+  }, []);
+
   async function setStatus(id: string, status: OrderStatus) {
-    const res = await fetch(`/api/orders/${id}`, {
+    const res = await fetch(withBasePath(`/api/orders/${id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -145,6 +166,45 @@ export function StaffOrdersBoard({
       return;
     }
     await load();
+  }
+
+  function openStaffWhatsApp(o: Order) {
+    if (!staffWaPhone) {
+      setError("اضبط رقم واتساب المطعم من الإعدادات");
+      return;
+    }
+    const channelAr =
+      o.channel === "delivery"
+        ? "توصيل"
+        : o.channel === "pos"
+          ? "POS"
+          : "طاولة";
+    const lines = o.lines
+      .map((l) => `• ${l.qty}× ${l.nameAr || l.name}`)
+      .join("\n");
+    const where =
+      o.channel === "delivery"
+        ? `📍 ${o.delivery?.addressLine || "—"}\n📞 ${o.delivery?.phone || "—"}`
+        : o.tableLabel
+          ? `🪑 ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+          : "حضور";
+    const note = o.guestNote ? `\nملاحظة: ${o.guestNote}` : "";
+    const text =
+      `طلب جديد — ${storeName}\n` +
+      `#${o.code} · ${channelAr}\n` +
+      `${where}\n` +
+      `${lines}\n` +
+      `الإجمالي: ${o.totals.grandTotal}${note}`;
+    const url = whatsappClickUrl(staffWaPhone, text);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function openCustomerWhatsApp(o: Order) {
+    const phone = o.delivery?.phone;
+    if (!phone) return;
+    const text = `مرحباً — طلبك #${o.code} من ${storeName} قيد التجهيز.`;
+    const url = whatsappClickUrl(phone, text);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
 
   function actionsFor(o: Order): { label: string; status: OrderStatus }[] {
@@ -336,6 +396,24 @@ export function StaffOrdersBoard({
                     {a.label}
                   </button>
                 ))}
+                {staffWaPhone && (
+                  <button
+                    type="button"
+                    onClick={() => openStaffWhatsApp(o)}
+                    className="min-h-11 rounded-md border border-emerald-400/40 px-3 text-sm font-semibold text-emerald-300"
+                  >
+                    واتساب للمطعم
+                  </button>
+                )}
+                {o.channel === "delivery" && o.delivery?.phone && (
+                  <button
+                    type="button"
+                    onClick={() => openCustomerWhatsApp(o)}
+                    className="min-h-11 rounded-md border border-sky-400/40 px-3 text-sm font-semibold text-sky-300"
+                  >
+                    واتساب للعميل
+                  </button>
+                )}
               </div>
             </li>
           );
