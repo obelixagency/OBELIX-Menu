@@ -11,9 +11,27 @@ const cairo = Cairo({
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await readBrand();
+  const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   return {
     title: `${brand.displayName} — المنيو`,
     description: `قائمة ${brand.displayName}`,
+    applicationName: `${brand.displayName} POS`,
+    manifest: `${base}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      title: `${brand.displayName} POS`,
+      statusBarStyle: "default",
+    },
+    icons: {
+      icon: [
+        { url: `${base}/icons/icon-192.png`, sizes: "192x192", type: "image/png" },
+        { url: `${base}/icons/icon-512.png`, sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: `${base}/icons/apple-touch-icon.png`, sizes: "180x180" }],
+    },
+    other: {
+      "mobile-web-app-capable": "yes",
+    },
   };
 }
 

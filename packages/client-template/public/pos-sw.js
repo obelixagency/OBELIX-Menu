@@ -1,7 +1,7 @@
 /* OBELIX POS offline service worker — cache shell + catalog GETs */
 /* global self, caches, fetch, Response */
 
-const CACHE = "obelix-pos-v1";
+const CACHE = "obelix-pos-v2";
 
 function scopeBase() {
   try {

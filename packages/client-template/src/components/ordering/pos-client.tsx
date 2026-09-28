@@ -103,6 +103,11 @@ const COPY = {
     syncing: "Syncing…",
     queued: "Saved offline",
     offlineCatalog: "Using cached menu",
+    syncFailed: "Sync failed — stock or server rejected",
+    retry: "Retry",
+    discard: "Discard",
+    install: "Install POS",
+    installHint: "Add to Home Screen for faster offline use",
   },
   ar: {
     all: "الكل",
@@ -137,6 +142,11 @@ const COPY = {
     syncing: "جاري المزامنة…",
     queued: "اتحفظ أوفلاين",
     offlineCatalog: "المنيو من الكاش",
+    syncFailed: "المزامنة فشلت — غالباً مخزون أو رفض من السيرفر",
+    retry: "إعادة",
+    discard: "تجاهل",
+    install: "تثبيت نقطة البيع",
+    installHint: "ضيف للشاشة الرئيسية عشان الأوفلاين أسرع",
   },
 } as const;
 
@@ -173,6 +183,10 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   const [pending, setPending] = useState<PendingPosOrder[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [usingCache, setUsingCache] = useState(false);
+  const [installEvent, setInstallEvent] = useState<{
+    prompt: () => Promise<void>;
+  } | null>(null);
+  const [showInstallHint, setShowInstallHint] = useState(false);
 
   function applyCatalog(data: {
     brand?: BrandInfo;
@@ -203,12 +217,15 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     }
   }, []);
 
-  const syncQueue = useCallback(async () => {
+  const syncQueue = useCallback(async (onlyLocalId?: string) => {
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     setSyncing(true);
     try {
       const rows = await listPending();
-      for (const row of rows) {
+      const targets = onlyLocalId
+        ? rows.filter((r) => r.localId === onlyLocalId)
+        : rows;
+      for (const row of targets) {
         if (row.status === "syncing") continue;
         await updatePending(row.localId, { status: "syncing", lastError: undefined });
         try {
@@ -225,9 +242,10 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
+            const errMsg = String(data.error || `HTTP ${res.status}`);
             await updatePending(row.localId, {
               status: "failed",
-              lastError: data.error || `HTTP ${res.status}`,
+              lastError: errMsg,
             });
             continue;
           }
@@ -328,6 +346,44 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     const scope = withBasePath("/") || "/";
     navigator.serviceWorker.register(swUrl, { scope }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    function onBeforeInstall(e: Event) {
+      e.preventDefault();
+      const ev = e as Event & {
+        prompt: () => Promise<void>;
+        userChoice?: Promise<{ outcome: string }>;
+      };
+      setInstallEvent({
+        prompt: async () => {
+          await ev.prompt();
+          try {
+            await ev.userChoice;
+          } catch {
+            /* ignore */
+          }
+          setInstallEvent(null);
+          setShowInstallHint(false);
+        },
+      });
+      setShowInstallHint(true);
+    }
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    // iOS / already installed: soft hint once per session
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      // @ts-expect-error iOS
+      window.navigator.standalone === true;
+    if (!isStandalone && !sessionStorage.getItem("obelix_install_dismissed")) {
+      setShowInstallHint(true);
+    }
+    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+  }, []);
+
+  async function discardPending(localId: string) {
+    await removePending(localId);
+    await refreshPending();
+  }
 
   async function switchBranch(id: string) {
     setBranchId(id);
@@ -731,11 +787,6 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
             {pending.length > 0
               ? ` · ${pending.length} ${t.pendingSync}`
               : ""}
-            {pending.some((p) => p.status === "failed")
-              ? locale === "ar"
-                ? " · فيه طلبات فشلت المزامنة"
-                : " · some sync failed"
-              : ""}
           </p>
           {pending.length > 0 && online && (
             <button
@@ -747,6 +798,85 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               {syncing ? t.syncing : t.syncNow}
             </button>
           )}
+        </div>
+      )}
+
+      {pending.some((p) => p.status === "failed") && (
+        <div className="space-y-2 border-b border-red-200 bg-red-50 px-3 py-2 sm:px-4">
+          <p className="text-xs font-semibold text-red-800">{t.syncFailed}</p>
+          {pending
+            .filter((p) => p.status === "failed")
+            .map((p) => (
+              <div
+                key={p.localId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-white px-2 py-1.5"
+              >
+                <div className="min-w-0 text-xs">
+                  <p className="font-bold">{p.localCode}</p>
+                  <p className="truncate text-red-700 opacity-90">
+                    {p.lastError || t.syncFailed}
+                  </p>
+                  <p className="opacity-50">
+                    {formatPrice(p.total, brand.currency, locale)} ·{" "}
+                    {p.lines.reduce((s, l) => s + l.qty, 0)}{" "}
+                    {locale === "ar" ? "قطعة" : "items"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    disabled={syncing || !online}
+                    onClick={() =>
+                      updatePending(p.localId, { status: "pending" }).then(() =>
+                        syncQueue(p.localId).then(() => load())
+                      )
+                    }
+                    className="min-h-8 rounded-md border border-black/15 bg-white px-2 text-[11px] font-bold disabled:opacity-40"
+                  >
+                    {t.retry}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => discardPending(p.localId)}
+                    className="min-h-8 rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-bold text-red-800"
+                  >
+                    {t.discard}
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {showInstallHint && !pending.some((p) => p.status === "failed") && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
+          <p className="text-xs opacity-70">{t.installHint}</p>
+          <div className="flex gap-1">
+            {installEvent && (
+              <button
+                type="button"
+                onClick={() => installEvent.prompt()}
+                className="min-h-8 rounded-md px-3 text-[11px] font-bold text-white"
+                style={{ background: primary }}
+              >
+                {t.install}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setShowInstallHint(false);
+                try {
+                  sessionStorage.setItem("obelix_install_dismissed", "1");
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="min-h-8 rounded-md border border-black/15 px-2 text-[11px]"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
