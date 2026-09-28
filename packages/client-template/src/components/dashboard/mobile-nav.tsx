@@ -4,36 +4,60 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
-  { href: "/dashboard", label: "الرئيسية", match: (p: string) => p === "/dashboard" },
-  {
-    href: "/dashboard/products",
-    label: "منتجات",
-    match: (p: string) => p.startsWith("/dashboard/products"),
-  },
-  {
-    href: "/dashboard/banners",
-    label: "عروض",
-    match: (p: string) => p.startsWith("/dashboard/banners"),
-  },
-  {
-    href: "/dashboard/reviews",
-    label: "تقييم",
-    match: (p: string) => p.startsWith("/dashboard/reviews"),
-  },
-  {
-    href: "/dashboard/settings",
-    label: "إعدادات",
-    match: (p: string) =>
-      p.startsWith("/dashboard/settings") ||
-      p.startsWith("/dashboard/contacts") ||
-      p.startsWith("/dashboard/categories"),
-  },
-];
-
-export function DashboardMobileNav() {
+export function DashboardMobileNav({
+  orderingOn = false,
+  tableOn = false,
+}: {
+  orderingOn?: boolean;
+  tableOn?: boolean;
+  stationsOn?: boolean;
+}) {
   const pathname = usePathname() || "";
   if (pathname.startsWith("/dashboard/login")) return null;
+
+  const items = [
+    {
+      href: "/dashboard",
+      label: "الرئيسية",
+      match: (p: string) => p === "/dashboard",
+    },
+    {
+      href: "/dashboard/products",
+      label: "منتجات",
+      match: (p: string) => p.startsWith("/dashboard/products"),
+    },
+    ...(orderingOn
+      ? [
+          {
+            href: "/dashboard/orders",
+            label: "طلبات",
+            match: (p: string) => p.startsWith("/dashboard/orders"),
+          },
+        ]
+      : [
+          {
+            href: "/dashboard/banners",
+            label: "عروض",
+            match: (p: string) => p.startsWith("/dashboard/banners"),
+          },
+        ]),
+    {
+      href: "/dashboard/reviews",
+      label: "تقييم",
+      match: (p: string) => p.startsWith("/dashboard/reviews"),
+    },
+    {
+      href: tableOn ? "/dashboard/tables" : "/dashboard/settings",
+      label: tableOn ? "طاولات" : "إعدادات",
+      match: (p: string) =>
+        tableOn
+          ? p.startsWith("/dashboard/tables") ||
+            p.startsWith("/dashboard/stations")
+          : p.startsWith("/dashboard/settings") ||
+            p.startsWith("/dashboard/contacts") ||
+            p.startsWith("/dashboard/categories"),
+    },
+  ];
 
   return (
     <nav
@@ -41,10 +65,10 @@ export function DashboardMobileNav() {
       aria-label="تنقل لوحة التحكم"
     >
       <ul className="mx-auto flex max-w-lg items-stretch justify-around gap-0.5 py-1">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = item.match(pathname);
           return (
-            <li key={item.href} className="flex-1">
+            <li key={item.href + item.label} className="flex-1">
               <Link
                 href={item.href}
                 className={cn(

@@ -23,7 +23,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return new NextResponse(data, {
       headers: {
         "Content-Type": type,
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {

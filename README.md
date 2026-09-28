@@ -43,7 +43,8 @@ Requires Node 20+ and [pnpm](https://pnpm.io).
 ```bash
 pnpm install
 
-# Agency — http://127.0.0.1:43121
+# Agency — http://127.0.0.1:43121/login
+# cp apps/agency/.env.example apps/agency/.env  # set AGENCY_PASSWORD + SESSION_SECRET
 pnpm dev:agency
 
 # Sample client (قهوة البيت) — http://127.0.0.1:43122
