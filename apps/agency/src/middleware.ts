@@ -58,6 +58,11 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
     "Cache-Control",
     "private, no-store, no-cache, max-age=0, must-revalidate"
   );
+  res.headers.set("CDN-Cache-Control", "no-store");
+  res.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  res.headers.set("Surrogate-Control", "no-store");
+  res.headers.set("Pragma", "no-cache");
+  res.headers.set("Vary", "Cookie");
   return res;
 }
 
