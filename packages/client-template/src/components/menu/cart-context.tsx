@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -31,6 +32,27 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
+const STORAGE_KEY = "obelix_menu_cart_v1";
+
+function readStoredLines(): CartLine[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CartLine[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (l) =>
+        l &&
+        typeof l.itemId === "string" &&
+        typeof l.name === "string" &&
+        Number(l.unitPrice) >= 0 &&
+        Number(l.qty) > 0
+    );
+  } catch {
+    return [];
+  }
+}
 
 export function CartProvider({
   children,
@@ -41,6 +63,21 @@ export function CartProvider({
 }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [open, setOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setLines(readStoredLines());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    } catch {
+      /* ignore quota */
+    }
+  }, [lines, hydrated]);
 
   const addItem = useCallback(
     (item: Omit<CartLine, "qty">, qty = 1) => {

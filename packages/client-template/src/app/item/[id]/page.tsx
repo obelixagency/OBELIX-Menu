@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { readBrand } from "@/lib/brand";
+import { readBrand, defaultLocale } from "@/lib/brand";
 import {
   getCategory,
   getProduct,
@@ -11,9 +11,13 @@ import {
   resolveDiscount,
 } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
-import { defaultLocale } from "@/lib/brand";
 import { pickLocalized } from "@/lib/i18n";
+import {
+  isOrderingEnabled,
+  normalizeOrderingFeatures,
+} from "@/lib/extensions/ordering";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
+import { ItemOrderPanel } from "@/components/menu/item-order-panel";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -29,6 +33,8 @@ export default async function ItemPage({ params }: Ctx) {
   const pricing = priceAfterDiscount(product.price, discount);
   const locale = defaultLocale(brand.languages);
   const currency = brand.currency || "EGP";
+  const features = normalizeOrderingFeatures(brand.extensions?.ordering);
+  const orderingOn = isOrderingEnabled(features);
   const title = pickLocalized(locale, product.name, product.nameEn);
   const desc = pickLocalized(
     locale,
@@ -125,6 +131,33 @@ export default async function ItemPage({ params }: Ctx) {
             <p className="text-sm leading-relaxed text-black/70">{desc}</p>
           )}
 
+          {orderingOn ? (
+            <ItemOrderPanel
+              locale={locale}
+              currency={currency}
+              maxItems={features.maxItemsPerOrder || 50}
+              tableOrdering={features.tableOrderingEnabled}
+              delivery={features.deliveryEnabled}
+              zonesEnabled={
+                features.tableOrderingEnabled && features.zonesIndoorOutdoor
+              }
+              guestNoteEnabled={features.guestNoteEnabled}
+              item={{
+                itemId: product.id,
+                name: product.name,
+                nameEn: product.nameEn,
+                unitPrice: pricing.final,
+                image: product.image,
+              }}
+            />
+          ) : (
+            <p className="text-center text-xs text-black/40">
+              {locale === "en"
+                ? "Ordering is not enabled for this menu."
+                : "الطلب من المنيو غير مفعّل لهذا العميل."}
+            </p>
+          )}
+
           {reviews.length > 0 && (
             <div className="rounded-xl border border-black/10 bg-white p-4">
               <h2 className="mb-2 text-sm font-bold">
@@ -143,13 +176,9 @@ export default async function ItemPage({ params }: Ctx) {
             </div>
           )}
 
-          <p className="text-center text-xs text-black/40">
-            {locale === "en"
-              ? "Ordering coming in a later release."
-              : "الطلب قريباً في إصدار لاحق."}
-          </p>
-
-          <PublicMenuFooter displayName={brand.displayName} locale={locale} />
+          <div className={orderingOn ? "pb-20" : undefined}>
+            <PublicMenuFooter displayName={brand.displayName} locale={locale} />
+          </div>
         </div>
       </div>
     </div>
