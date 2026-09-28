@@ -342,8 +342,12 @@ export function StaffOrdersBoard({
         })}
       </ul>
 
-      {orders.length === 0 && !error && (
-        <p className="py-20 text-center text-white/40">لا توجد طلبات مفتوحة</p>
+      {visible.length === 0 && !error && (
+        <p className="py-20 text-center text-white/40">
+          {orders.length === 0
+            ? "لا توجد طلبات مفتوحة"
+            : "لا طلبات في هذا الفلتر"}
+        </p>
       )}
     </div>
   );
