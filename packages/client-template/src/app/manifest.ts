@@ -4,9 +4,12 @@ import { readBrand } from "@/lib/brand";
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const brand = await readBrand();
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  const label = /pos/i.test(brand.displayName)
+    ? brand.displayName
+    : `${brand.displayName} POS`;
   return {
-    name: `${brand.displayName} POS`,
-    short_name: brand.displayName.slice(0, 12) || "OBELIX POS",
+    name: label,
+    short_name: label.slice(0, 12),
     description: `نقطة بيع ${brand.displayName} — تعمل أوفلاين ثم تزامن`,
     start_url: `${base}/pos`,
     scope: `${base}/` || "/",
