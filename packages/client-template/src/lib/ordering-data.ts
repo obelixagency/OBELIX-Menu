@@ -747,6 +747,241 @@ function maskPhone(phone: string): string {
   return `${"*".repeat(Math.max(0, d.length - 3))}${d.slice(-3)}`;
 }
 
+export type SalesReport = {
+  from: string;
+  to: string;
+  timezone: string;
+  orderCount: number;
+  cancelledCount: number;
+  openCount: number;
+  revenue: number;
+  averageTicket: number;
+  byChannel: Record<string, { count: number; revenue: number }>;
+  byPayment: Record<string, { count: number; revenue: number }>;
+  byStatus: Record<string, { count: number; revenue: number }>;
+  bySource: Record<string, { count: number; revenue: number }>;
+  topItems: {
+    itemId: string;
+    name: string;
+    nameAr: string;
+    qty: number;
+    revenue: number;
+  }[];
+  recentOrders: {
+    id: string;
+    code: string;
+    createdAt: string;
+    channel: OrderChannel;
+    status: OrderStatus;
+    paymentMethod: Order["paymentMethod"];
+    grandTotal: number;
+  }[];
+};
+
+const CAIRO_TZ = "Africa/Cairo";
+
+function wallClockParts(ms: number, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(ms));
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value || "0");
+  return {
+    y: get("year"),
+    m: get("month"),
+    d: get("day"),
+    h: get("hour"),
+    mi: get("minute"),
+    s: get("second"),
+  };
+}
+
+/** UTC ms for local Y-M-D H:M:S in `timezone` (iterative offset, no deps). */
+function zonedLocalToUtcMs(
+  y: number,
+  m: number,
+  d: number,
+  h: number,
+  mi: number,
+  s: number,
+  timezone: string
+): number {
+  let utc = Date.UTC(y, m - 1, d, h, mi, s);
+  for (let i = 0; i < 4; i++) {
+    const w = wallClockParts(utc, timezone);
+    const asUtc = Date.UTC(w.y, w.m - 1, w.d, w.h, w.mi, w.s);
+    const want = Date.UTC(y, m - 1, d, h, mi, s);
+    utc += want - asUtc;
+  }
+  return utc;
+}
+
+/** Calendar day bounds in a timezone → ISO UTC range (inclusive day). */
+export function dayRangeIso(
+  dateYmd: string,
+  timezone = CAIRO_TZ
+): { from: string; to: string } {
+  const ymd = /^\d{4}-\d{2}-\d{2}$/.test(dateYmd)
+    ? dateYmd
+    : todayYmd(timezone);
+  const [Y, M, D] = ymd.split("-").map(Number);
+  const start = zonedLocalToUtcMs(Y, M, D, 0, 0, 0, timezone);
+  const next = zonedLocalToUtcMs(Y, M, D + 1, 0, 0, 0, timezone);
+  return {
+    from: new Date(start).toISOString(),
+    to: new Date(next - 1).toISOString(),
+  };
+}
+
+function todayYmd(timezone = CAIRO_TZ): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function bumpBucket(
+  map: Record<string, { count: number; revenue: number }>,
+  key: string,
+  revenue: number
+) {
+  const cur = map[key] || { count: 0, revenue: 0 };
+  cur.count += 1;
+  cur.revenue = Math.round((cur.revenue + revenue) * 100) / 100;
+  map[key] = cur;
+}
+
+/**
+ * Owner daily sales snapshot from ordering.json.
+ * Revenue = non-cancelled orders in range (createdAt).
+ */
+export async function buildSalesReport(opts?: {
+  from?: string;
+  to?: string;
+  /** YYYY-MM-DD — when set, overrides from/to with that Cairo calendar day */
+  day?: string;
+  timezone?: string;
+}): Promise<SalesReport> {
+  const timezone = opts?.timezone || CAIRO_TZ;
+  let from: string;
+  let to: string;
+
+  if (opts?.day || (!opts?.from && !opts?.to)) {
+    const range = dayRangeIso(opts?.day || todayYmd(timezone), timezone);
+    from = range.from;
+    to = range.to;
+  } else {
+    from = opts.from || dayRangeIso(todayYmd(timezone), timezone).from;
+    to = opts.to || new Date().toISOString();
+    if (from > to) {
+      const swap = from;
+      from = to;
+      to = swap;
+    }
+  }
+
+  const store = await ensureStore();
+  const inRange = store.orders.filter(
+    (o) => o.createdAt >= from && o.createdAt <= to
+  );
+
+  const byChannel: SalesReport["byChannel"] = {};
+  const byPayment: SalesReport["byPayment"] = {};
+  const byStatus: SalesReport["byStatus"] = {};
+  const bySource: SalesReport["bySource"] = {};
+  const itemMap = new Map<
+    string,
+    { itemId: string; name: string; nameAr: string; qty: number; revenue: number }
+  >();
+
+  let revenue = 0;
+  let orderCount = 0;
+  let cancelledCount = 0;
+  let openCount = 0;
+
+  for (const o of inRange) {
+    const total = Number(o.totals?.grandTotal) || 0;
+    bumpBucket(byStatus, o.status, total);
+    bumpBucket(byChannel, o.channel, total);
+    bumpBucket(bySource, o.source || "public_menu", total);
+
+    if (o.status === "cancelled") {
+      cancelledCount += 1;
+      continue;
+    }
+
+    orderCount += 1;
+    revenue = Math.round((revenue + total) * 100) / 100;
+
+    if (!["served", "cancelled"].includes(o.status)) {
+      openCount += 1;
+    }
+
+    const payKey = o.paymentMethod || "unpaid";
+    bumpBucket(byPayment, payKey, total);
+
+    for (const line of o.lines || []) {
+      const prev = itemMap.get(line.itemId) || {
+        itemId: line.itemId,
+        name: line.name,
+        nameAr: line.nameAr,
+        qty: 0,
+        revenue: 0,
+      };
+      prev.qty += line.qty;
+      prev.revenue = Math.round((prev.revenue + line.lineTotal) * 100) / 100;
+      itemMap.set(line.itemId, prev);
+    }
+  }
+
+  const topItems = [...itemMap.values()]
+    .sort((a, b) => b.revenue - a.revenue || b.qty - a.qty)
+    .slice(0, 15);
+
+  const recentOrders = [...inRange]
+    .filter((o) => o.status !== "cancelled")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 40)
+    .map((o) => ({
+      id: o.id,
+      code: o.code,
+      createdAt: o.createdAt,
+      channel: o.channel,
+      status: o.status,
+      paymentMethod: o.paymentMethod ?? null,
+      grandTotal: o.totals.grandTotal,
+    }));
+
+  return {
+    from,
+    to,
+    timezone,
+    orderCount,
+    cancelledCount,
+    openCount,
+    revenue,
+    averageTicket:
+      orderCount > 0
+        ? Math.round((revenue / orderCount) * 100) / 100
+        : 0,
+    byChannel,
+    byPayment,
+    byStatus,
+    bySource,
+    topItems,
+    recentOrders,
+  };
+}
+
 export function noStoreHeaders(): HeadersInit {
   return {
     "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",

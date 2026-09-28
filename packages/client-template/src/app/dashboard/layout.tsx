@@ -49,6 +49,9 @@ export default async function DashboardLayout({
             {orderingOn && (isOwner || role === "cashier") && (
               <DashLink href="/dashboard/orders">Orders</DashLink>
             )}
+            {isOwner && orderingOn && (
+              <DashLink href="/dashboard/sales">Sales</DashLink>
+            )}
             {isOwner && tableOn && (
               <DashLink href="/dashboard/tables">Tables</DashLink>
             )}

@@ -33,6 +33,11 @@ export function DashboardMobileNav({
             label: "طلبات",
             match: (p: string) => p.startsWith("/dashboard/orders"),
           },
+          {
+            href: "/dashboard/sales",
+            label: "مبيعات",
+            match: (p: string) => p.startsWith("/dashboard/sales"),
+          },
         ]
       : [
           {
@@ -40,22 +45,24 @@ export function DashboardMobileNav({
             label: "عروض",
             match: (p: string) => p.startsWith("/dashboard/banners"),
           },
+          {
+            href: "/dashboard/reviews",
+            label: "تقييم",
+            match: (p: string) => p.startsWith("/dashboard/reviews"),
+          },
         ]),
-    {
-      href: "/dashboard/reviews",
-      label: "تقييم",
-      match: (p: string) => p.startsWith("/dashboard/reviews"),
-    },
     {
       href: tableOn ? "/dashboard/tables" : "/dashboard/settings",
       label: tableOn ? "طاولات" : "إعدادات",
       match: (p: string) =>
         tableOn
           ? p.startsWith("/dashboard/tables") ||
-            p.startsWith("/dashboard/stations")
+            p.startsWith("/dashboard/stations") ||
+            p.startsWith("/dashboard/reviews")
           : p.startsWith("/dashboard/settings") ||
             p.startsWith("/dashboard/contacts") ||
-            p.startsWith("/dashboard/categories"),
+            p.startsWith("/dashboard/categories") ||
+            p.startsWith("/dashboard/reviews"),
     },
   ];
 
