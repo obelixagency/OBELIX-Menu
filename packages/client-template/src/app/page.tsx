@@ -7,10 +7,23 @@ import {
   listReviews,
 } from "@/lib/menu-data";
 import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
+import {
+  applyBranchToProduct,
+  getBranch,
+  isMultiBranchOn,
+  resolveBranchId,
+} from "@/lib/branches-data";
 import { PublicMenu } from "@/components/menu/public-menu";
 
-export default async function HomePage() {
-  const [brand, categories, products, contacts, reviews, banners, invOn] =
+type Props = { searchParams: Promise<{ branch?: string }> };
+
+export default async function HomePage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const multi = await isMultiBranchOn();
+  const branchId = await resolveBranchId(sp.branch || null);
+  const branch = multi ? await getBranch(branchId) : null;
+
+  const [brand, categories, productsRaw, contacts, reviews, banners, invOn] =
     await Promise.all([
       readBrand(),
       listCategories(),
@@ -20,7 +33,11 @@ export default async function HomePage() {
       listBanners(),
       isInventoryOn(),
     ]);
-  const stockMap = invOn ? await getStockMap() : {};
+
+  const products = await Promise.all(
+    productsRaw.map((p) => applyBranchToProduct(branchId, p))
+  );
+  const stockMap = invOn ? await getStockMap(branchId) : {};
 
   return (
     <PublicMenu
@@ -32,6 +49,8 @@ export default async function HomePage() {
       banners={banners}
       stockMap={stockMap}
       inventoryEnabled={invOn}
+      branchId={branchId}
+      branchLabel={branch?.name}
     />
   );
 }

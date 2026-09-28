@@ -163,6 +163,10 @@ export const dictionaries = {
           label: "Inventory",
           hint: "Track stock per product; deduct on menu and POS orders; low-stock alerts for the owner.",
         },
+        multiBranchEnabled: {
+          label: "Multi-branch",
+          hint: "Shared menu catalog with per-branch stock and optional price overrides. Manage branches on the client dashboard.",
+        },
       },
     },
   },
@@ -325,6 +329,10 @@ export const dictionaries = {
         inventoryEnabled: {
           label: "المخازن",
           hint: "تتبع كمية كل صنف؛ خصم عند طلب المنيو والـ POS؛ تنبيه نقص للمالك.",
+        },
+        multiBranchEnabled: {
+          label: "فروع متعددة",
+          hint: "منيو مشترك مع مخزون وسعر اختياري لكل فرع. إدارة الفروع من داشبورد العميل.",
         },
       },
     },

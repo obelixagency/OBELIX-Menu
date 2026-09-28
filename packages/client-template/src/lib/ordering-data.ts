@@ -13,6 +13,10 @@ import {
   resolveDiscount as resolveDisc,
 } from "./types";
 import { deductStock, restoreStock } from "./inventory-data";
+import {
+  applyBranchToProduct,
+  resolveBranchId,
+} from "./branches-data";
 
 export type Zone = {
   id: string;
@@ -61,6 +65,8 @@ export type Order = {
   status: OrderStatus;
   guestNote?: string;
   source: "public_menu" | "pos";
+  /** Branch that owns stock/price for this order */
+  branchId?: string | null;
   /** Set when closed from POS counter */
   paymentMethod?: "cash" | "card" | "other" | null;
   paidAt?: string | null;
@@ -399,6 +405,7 @@ export type CreateOrderInput = {
   delivery?: { phone: string; addressLine: string; notes?: string };
   guestNote?: string;
   lines: { itemId: string; qty: number }[];
+  branchId?: string | null;
   /** honeypot — must be empty */
   website?: string;
 };
@@ -433,6 +440,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
 
   const store = await ensureStore();
+  const branchId = await resolveBranchId(input.branchId);
   let tableLabel: string | null = null;
   let zoneLabel: string | null = null;
   let tableId: string | null = null;
@@ -476,8 +484,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   for (const raw of input.lines) {
     const qty = Math.floor(Number(raw.qty));
     if (!raw.itemId || qty < 1) continue;
-    const product = await getProduct(raw.itemId);
-    if (!product || !product.available) {
+    let product = await getProduct(raw.itemId);
+    if (!product) {
+      throw new Error("صنف غير متاح — حدّث السلة");
+    }
+    product = await applyBranchToProduct(branchId, product);
+    if (!product.available) {
       throw new Error("صنف غير متاح — حدّث السلة");
     }
     const category = product.categoryId
@@ -500,7 +512,10 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
   if (!lines.length) throw new Error("السلة فارغة");
 
-  await deductStock(lines.map((l) => ({ itemId: l.itemId, qty: l.qty })));
+  await deductStock(
+    lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+    branchId
+  );
 
   const subtotal = Math.round(
     lines.reduce((s, l) => s + l.lineTotal, 0) * 100
@@ -531,6 +546,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
         ? input.guestNote.trim().slice(0, 500)
         : undefined,
     source: "public_menu",
+    branchId,
     lines,
     totals: { subtotal, grandTotal: subtotal },
   };
@@ -549,6 +565,7 @@ export type CreatePosOrderInput = {
   guestNote?: string;
   paymentMethod: "cash" | "card" | "other";
   lines: { itemId: string; qty: number }[];
+  branchId?: string | null;
 };
 
 /** Authenticated POS ticket close — walk-in or optional table */
@@ -579,6 +596,7 @@ export async function createPosOrder(
   }
 
   const store = await ensureStore();
+  const branchId = await resolveBranchId(input.branchId);
   let tableLabel: string | null = null;
   let zoneLabel: string | null = null;
   let tableId: string | null = null;
@@ -605,8 +623,12 @@ export async function createPosOrder(
   for (const raw of input.lines) {
     const qty = Math.floor(Number(raw.qty));
     if (!raw.itemId || qty < 1) continue;
-    const product = await getProduct(raw.itemId);
-    if (!product || !product.available) {
+    let product = await getProduct(raw.itemId);
+    if (!product) {
+      throw new Error("Item unavailable — refresh catalog");
+    }
+    product = await applyBranchToProduct(branchId, product);
+    if (!product.available) {
       throw new Error("Item unavailable — refresh catalog");
     }
     const category = product.categoryId
@@ -629,7 +651,10 @@ export async function createPosOrder(
   }
   if (!lines.length) throw new Error("Ticket is empty");
 
-  await deductStock(lines.map((l) => ({ itemId: l.itemId, qty: l.qty })));
+  await deductStock(
+    lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+    branchId
+  );
 
   const subtotal =
     Math.round(lines.reduce((s, l) => s + l.lineTotal, 0) * 100) / 100;
@@ -662,6 +687,7 @@ export async function createPosOrder(
         ? input.guestNote.trim().slice(0, 500)
         : undefined,
     source: "pos",
+    branchId,
     paymentMethod: method,
     paidAt: now,
     lines,
@@ -710,7 +736,8 @@ export async function updateOrderStatus(
   }
   if (status === "cancelled" && order.status !== "cancelled") {
     await restoreStock(
-      order.lines.map((l) => ({ itemId: l.itemId, qty: l.qty }))
+      order.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+      order.branchId || undefined
     );
   }
   store.orders[idx] = {

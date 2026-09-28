@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       guestNote: body.guestNote,
       paymentMethod: body.paymentMethod,
       lines: body.lines || [],
+      branchId: body.branchId || null,
     });
     return NextResponse.json(
       {

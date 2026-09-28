@@ -33,6 +33,8 @@ export type OrderingFeatures = {
   staffAccountsEnabled: boolean;
   /** Track stock qty per product; deduct on menu/POS orders */
   inventoryEnabled: boolean;
+  /** Multiple branches — shared catalog, per-branch stock & price overrides */
+  multiBranchEnabled: boolean;
   /** Soft settings (also overridable in ordering.json) */
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
@@ -55,6 +57,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   posEnabled: false,
   staffAccountsEnabled: false,
   inventoryEnabled: false,
+  multiBranchEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
   enabled: false,
@@ -86,6 +89,7 @@ export function normalizeOrderingFeatures(
   merged.posEnabled = Boolean(merged.posEnabled);
   merged.staffAccountsEnabled = Boolean(merged.staffAccountsEnabled);
   merged.inventoryEnabled = Boolean(merged.inventoryEnabled);
+  merged.multiBranchEnabled = Boolean(merged.multiBranchEnabled);
   merged.guestNoteEnabled = merged.guestNoteEnabled !== false;
   const max = Number(merged.maxItemsPerOrder);
   merged.maxItemsPerOrder =
@@ -138,4 +142,11 @@ export function hasInventory(
 ): boolean {
   const f = normalizeOrderingFeatures(ext);
   return f.orderFromMenu && f.inventoryEnabled;
+}
+
+export function hasMultiBranch(
+  ext?: Partial<OrderingFeatures> | null
+): boolean {
+  const f = normalizeOrderingFeatures(ext);
+  return f.orderFromMenu && f.multiBranchEnabled;
 }

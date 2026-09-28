@@ -21,6 +21,8 @@ export type OrderingFeatures = {
   staffAccountsEnabled: boolean;
   /** Track stock and deduct on orders */
   inventoryEnabled: boolean;
+  /** Shared catalog with per-branch stock & prices */
+  multiBranchEnabled: boolean;
   guestNoteEnabled?: boolean;
   maxItemsPerOrder?: number;
 };
@@ -36,6 +38,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   posEnabled: false,
   staffAccountsEnabled: false,
   inventoryEnabled: false,
+  multiBranchEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
 };
@@ -56,6 +59,7 @@ export function normalizeOrderingFeatures(
     posEnabled: Boolean(raw?.posEnabled),
     staffAccountsEnabled: Boolean(raw?.staffAccountsEnabled),
     inventoryEnabled: Boolean(raw?.inventoryEnabled),
+    multiBranchEnabled: Boolean(raw?.multiBranchEnabled),
     guestNoteEnabled: raw?.guestNoteEnabled !== false,
     maxItemsPerOrder:
       Number(raw?.maxItemsPerOrder) > 0

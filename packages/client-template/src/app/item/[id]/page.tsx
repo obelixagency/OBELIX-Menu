@@ -17,15 +17,26 @@ import {
   normalizeOrderingFeatures,
 } from "@/lib/extensions/ordering";
 import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
+import {
+  applyBranchToProduct,
+  resolveBranchId,
+} from "@/lib/branches-data";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
 import { ItemOrderPanel } from "@/components/menu/item-order-panel";
 
-type Ctx = { params: Promise<{ id: string }> };
+type Ctx = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ branch?: string }>;
+};
 
-export default async function ItemPage({ params }: Ctx) {
+export default async function ItemPage({ params, searchParams }: Ctx) {
   const { id } = await params;
-  const [brand, product] = await Promise.all([readBrand(), getProduct(id)]);
-  if (!product || !product.available) notFound();
+  const sp = await searchParams;
+  const branchId = await resolveBranchId(sp.branch || null);
+  const [brand, productRaw] = await Promise.all([readBrand(), getProduct(id)]);
+  if (!productRaw) notFound();
+  const product = await applyBranchToProduct(branchId, productRaw);
+  if (!product.available) notFound();
 
   const category = product.categoryId
     ? await getCategory(product.categoryId)
@@ -37,7 +48,7 @@ export default async function ItemPage({ params }: Ctx) {
   const features = normalizeOrderingFeatures(brand.extensions?.ordering);
   const orderingOn = isOrderingEnabled(features);
   const invOn = await isInventoryOn();
-  const stockMap = invOn ? await getStockMap() : {};
+  const stockMap = invOn ? await getStockMap(branchId) : {};
   const stockQty = invOn ? (stockMap[product.id] ?? 0) : null;
   const outOfStock = stockQty !== null && stockQty <= 0;
   const title = pickLocalized(locale, product.name, product.nameEn);
@@ -160,6 +171,7 @@ export default async function ItemPage({ params }: Ctx) {
                 }
                 guestNoteEnabled={features.guestNoteEnabled}
                 stockQty={stockQty}
+                branchId={branchId}
                 item={{
                   itemId: product.id,
                   name: product.name,

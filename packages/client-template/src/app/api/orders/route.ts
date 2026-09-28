@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       guestNote: body.guestNote,
       lines: body.lines || [],
       website: body.website,
+      branchId: body.branchId,
     });
     return NextResponse.json(
       {

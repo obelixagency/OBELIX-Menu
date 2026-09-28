@@ -32,7 +32,13 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const from = url.searchParams.get("from") || undefined;
   const to = url.searchParams.get("to") || undefined;
-  const report = await buildInventoryReport({ from, to });
+  const hint =
+    url.searchParams.get("branch") ||
+    req.cookies.get("obelix_branch")?.value ||
+    null;
+  const { resolveBranchId } = await import("@/lib/branches-data");
+  const branchId = await resolveBranchId(hint);
+  const report = await buildInventoryReport({ from, to, branchId });
   return NextResponse.json(
     { enabled: true, report, currency: brand.currency || "EGP" },
     { headers: noStoreHeaders() }

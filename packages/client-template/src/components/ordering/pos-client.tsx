@@ -138,13 +138,21 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   const [payError, setPayError] = useState<string | null>(null);
   const [shiftOpen, setShiftOpen] = useState<boolean | null>(null);
   const [shiftBusy, setShiftBusy] = useState(false);
+  const [branches, setBranches] = useState<
+    { id: string; name: string; nameEn?: string; slug: string }[]
+  >([]);
+  const [branchId, setBranchId] = useState<string>("");
+  const [multiBranch, setMultiBranch] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredBranch?: string) => {
     setLoading(true);
     setError(null);
     try {
+      const qs = preferredBranch
+        ? `?branch=${encodeURIComponent(preferredBranch)}`
+        : "";
       const [catRes, shiftRes] = await Promise.all([
-        fetch("/api/pos/catalog"),
+        fetch(`/api/pos/catalog${qs}`),
         fetch("/api/shifts"),
       ]);
       const data = await catRes.json();
@@ -154,6 +162,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       setProducts(data.products || []);
       setTables(data.tables || []);
       setTableOrdering(Boolean(data.features?.tableOrderingEnabled));
+      setMultiBranch(Boolean(data.features?.multiBranch));
+      setBranches(data.branches || []);
+      if (data.branchId) setBranchId(data.branchId);
       const mode = (data.brand?.languages || "both") as LanguageMode;
       setLocale(mode === "ar" ? "ar" : "en");
       if (shiftRes.ok) {
@@ -172,6 +183,18 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function switchBranch(id: string) {
+    setBranchId(id);
+    setLines([]);
+    setLastCode(null);
+    await fetch("/api/branches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "select", branchId: id }),
+    });
+    await load(id);
+  }
 
   const t = COPY[locale];
   const dir = dirFor(locale);
@@ -261,6 +284,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           paymentMethod: method,
           tableId: tableId || null,
           guestNote: note || undefined,
+          branchId: branchId || undefined,
           lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
         }),
       });
@@ -398,6 +422,19 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {multiBranch && branches.length > 0 && (
+            <select
+              value={branchId}
+              onChange={(e) => switchBranch(e.target.value)}
+              className="min-h-10 rounded-md border border-black/15 bg-white px-2 text-sm font-medium"
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {pickLocalized(locale, b.name, b.nameEn || b.name)}
+                </option>
+              ))}
+            </select>
+          )}
           {localeOptions.length > 1 && (
             <div className="inline-flex overflow-hidden rounded-md border border-black/15">
               {localeOptions.map((loc) => (

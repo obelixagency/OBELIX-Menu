@@ -33,6 +33,8 @@ type Props = {
   /** productId → remaining qty; empty when inventory off */
   stockMap?: Record<string, number>;
   inventoryEnabled?: boolean;
+  branchId?: string;
+  branchLabel?: string;
 };
 
 export function PublicMenu(props: Props) {
@@ -53,6 +55,8 @@ function PublicMenuInner({
   banners,
   stockMap = {},
   inventoryEnabled = false,
+  branchId,
+  branchLabel,
   features,
 }: Props & {
   features: ReturnType<typeof normalizeOrderingFeatures>;
@@ -231,6 +235,9 @@ function PublicMenuInner({
           <h1 className="max-w-full break-words text-2xl font-extrabold tracking-tight sm:text-4xl">
             {brand.displayName}
           </h1>
+          {branchLabel && (
+            <p className="text-sm font-medium text-white/90">{branchLabel}</p>
+          )}
           <p className="max-w-md text-sm text-white/85">
             {orderingOn
               ? locale === "en"
@@ -464,6 +471,7 @@ function PublicMenuInner({
               features.tableOrderingEnabled && features.zonesIndoorOutdoor
             }
             guestNoteEnabled={features.guestNoteEnabled}
+            branchId={branchId}
           />
         </>
       )}

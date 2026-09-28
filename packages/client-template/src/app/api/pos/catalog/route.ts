@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { hasPos, normalizeOrderingFeatures } from "@/lib/extensions/ordering";
@@ -9,10 +9,17 @@ import {
   priceAfterDiscount,
   resolveDiscount,
 } from "@/lib/types";
+import {
+  BRANCH_COOKIE,
+  applyBranchToProduct,
+  isMultiBranchOn,
+  listBranches,
+  resolveBranchId,
+} from "@/lib/branches-data";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!(await isAuthenticated())) {
     return NextResponse.json(
       { error: "Unauthorized" },
@@ -29,14 +36,26 @@ export async function GET() {
 
   const features = normalizeOrderingFeatures(brand.extensions?.ordering);
   const invOn = await isInventoryOn();
-  const [categories, products, tables, stock] = await Promise.all([
+  const multi = await isMultiBranchOn();
+  const hint =
+    req.nextUrl.searchParams.get("branch") ||
+    req.cookies.get(BRANCH_COOKIE)?.value ||
+    null;
+  const branchId = await resolveBranchId(hint);
+
+  const [categories, productsRaw, tables, stock, branches] = await Promise.all([
     listCategories(),
     listProducts(),
     features.tableOrderingEnabled ? listTables() : Promise.resolve([]),
-    invOn ? getStockMap() : Promise.resolve({} as Record<string, number>),
+    invOn ? getStockMap(branchId) : Promise.resolve({} as Record<string, number>),
+    multi ? listBranches(true) : Promise.resolve([]),
   ]);
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
+  const products = await Promise.all(
+    productsRaw.map((p) => applyBranchToProduct(branchId, p))
+  );
+
   const catalog = products
     .filter((p) => p.available)
     .map((p) => {
@@ -78,7 +97,10 @@ export async function GET() {
       features: {
         tableOrderingEnabled: features.tableOrderingEnabled,
         inventoryEnabled: invOn,
+        multiBranch: multi,
       },
+      branchId,
+      branches,
       categories: cats,
       products: catalog,
       tables: tables

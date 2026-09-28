@@ -24,6 +24,7 @@ const FLAG_KEYS: {
   { key: "posEnabled", needsMaster: true },
   { key: "staffAccountsEnabled" },
   { key: "inventoryEnabled", needsMaster: true },
+  { key: "multiBranchEnabled", needsMaster: true },
 ];
 
 export function OrderingFlagsEditor({ value, onChange }: Props) {

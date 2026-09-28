@@ -16,6 +16,7 @@ type Props = {
   guestNoteEnabled: boolean;
   /** Remaining stock; null when inventory tracking is off */
   stockQty?: number | null;
+  branchId?: string;
   item: {
     itemId: string;
     name: string;
@@ -41,6 +42,7 @@ function ItemOrderPanelInner({
   zonesEnabled,
   guestNoteEnabled,
   stockQty = null,
+  branchId,
   item,
 }: Props) {
   const cart = useCart();
@@ -149,6 +151,7 @@ function ItemOrderPanelInner({
         delivery={delivery}
         zonesEnabled={zonesEnabled}
         guestNoteEnabled={guestNoteEnabled}
+        branchId={branchId}
       />
     </>
   );

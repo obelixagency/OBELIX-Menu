@@ -27,6 +27,7 @@ type Props = {
   delivery: boolean;
   zonesEnabled: boolean;
   guestNoteEnabled: boolean;
+  branchId?: string;
 };
 
 export function CartCheckout({
@@ -36,6 +37,7 @@ export function CartCheckout({
   delivery,
   zonesEnabled,
   guestNoteEnabled,
+  branchId,
 }: Props) {
   const cart = useCart();
   const router = useRouter();
@@ -107,6 +109,7 @@ export function CartCheckout({
           guestNote: guestNoteEnabled ? guestNote : undefined,
           lines: cart.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
           website: honeypot,
+          branchId: branchId || undefined,
         }),
       });
       const data = await res.json();

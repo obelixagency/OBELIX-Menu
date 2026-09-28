@@ -61,13 +61,22 @@ export function InventoryClient() {
     lowCount: number;
     outCount: number;
   } | null>(null);
+  const [branchId, setBranchId] = useState("");
+  const [branches, setBranches] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [multiBranch, setMultiBranch] = useState(false);
 
   const loadReport = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/inventory/report?from=${encodeURIComponent(fromDay)}&to=${encodeURIComponent(toDay)}`,
-        { cache: "no-store" }
-      );
+      const qs = new URLSearchParams({
+        from: fromDay,
+        to: toDay,
+      });
+      if (branchId) qs.set("branch", branchId);
+      const res = await fetch(`/api/inventory/report?${qs}`, {
+        cache: "no-store",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل تقرير المخزون");
       setReportItems(data.report?.items || []);
@@ -78,24 +87,28 @@ export function InventoryClient() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ");
     }
-  }, [fromDay, toDay]);
+  }, [fromDay, toDay, branchId]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/inventory", { cache: "no-store" });
+      const qs = branchId ? `?branch=${encodeURIComponent(branchId)}` : "";
+      const res = await fetch(`/api/inventory${qs}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل التحميل");
       setEnabled(data.enabled !== false);
       setItems(data.items || []);
+      setMultiBranch(Boolean(data.multiBranch));
+      setBranches(data.branches || []);
+      if (data.branchId) setBranchId(data.branchId);
       if (data.enabled !== false) await loadReport();
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ");
     } finally {
       setLoading(false);
     }
-  }, [loadReport]);
+  }, [loadReport, branchId]);
 
   useEffect(() => {
     load();
@@ -108,7 +121,7 @@ export function InventoryClient() {
       const res = await fetch("/api/inventory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, qty, lowAt }),
+        body: JSON.stringify({ productId, qty, lowAt, branchId: branchId || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل الحفظ");
@@ -118,6 +131,15 @@ export function InventoryClient() {
     } finally {
       setSaving(null);
     }
+  }
+
+  async function switchBranch(id: string) {
+    setBranchId(id);
+    await fetch("/api/branches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "select", branchId: id }),
+    });
   }
 
   if (loading) {
@@ -147,6 +169,24 @@ export function InventoryClient() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-3">
+        {multiBranch && branches.length > 0 && (
+          <Card className="sm:col-span-3">
+            <CardContent className="flex flex-wrap items-center gap-2 p-4">
+              <span className="text-sm text-black/50">الفرع:</span>
+              <select
+                className="h-10 rounded-md border border-black/15 bg-white px-3 text-sm"
+                value={branchId}
+                onChange={(e) => switchBranch(e.target.value)}
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-black/45">الأصناف المتتبَّعة</p>
