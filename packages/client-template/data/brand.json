@@ -1,6 +1,6 @@
 {
-  "displayName": "قهوة البيت",
-  "slug": "qahwa-elbeit",
+  "displayName": "Demo Cafe POS",
+  "slug": "demo-cafe-pos",
   "logoUrl": "/uploads/logo-qahwa.svg",
   "colors": {
     "primary": "#5C3A1E",
@@ -9,7 +9,7 @@
   },
   "font": "Cairo",
   "currency": "EGP",
-  "domain": "menu.qahwa-elbeit.example.com",
+  "domain": "menu.demo-cafe-pos.example.com",
   "dashboardPassword": "obelix123",
   "languages": "both",
   "notificationEmail": null,
@@ -29,7 +29,7 @@
       "maxItemsPerOrder": 50,
       "enabled": true,
       "provider": "cart",
-      "note": "Local demo — all ordering flags ON for MVP testing"
+      "note": "Live Hostinger POS pilot"
     }
   }
 }

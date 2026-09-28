@@ -134,7 +134,7 @@ export default async function ItemPage({ params }: Ctx) {
                 {reviews.map((r) => (
                   <li key={r.id} className="text-sm">
                     <span className="text-[var(--brand-accent)]">
-                      {"★".repeat(r.rating)}
+                      {"★".repeat(r.rating ?? 0)}
                     </span>{" "}
                     {r.comment}
                   </li>

@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
     });
 
     const brand = await readBrand();
-    let mail = { sent: false, skipped: true as boolean, error: undefined as string | undefined };
+    let mail: { sent: boolean; skipped: boolean; error?: string } = {
+      sent: false,
+      skipped: true,
+    };
     if (brand.notificationEmail) {
       mail = await sendRateFormEmail({
         to: brand.notificationEmail,
