@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { withBasePath } from "@/lib/base-path";
-import { whatsappClickUrl } from "@/lib/order-alerts";
+import { whatsappClickUrl } from "@/lib/order-alerts-shared";
 import type { OrderStatus, Station } from "@/lib/extensions/ordering";
 
 type Order = {

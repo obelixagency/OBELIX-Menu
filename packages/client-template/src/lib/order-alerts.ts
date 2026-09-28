@@ -1,17 +1,17 @@
 import { readBrand } from "@/lib/brand";
 import type { Order } from "@/lib/ordering-data";
 import { getOrderingSettings } from "@/lib/ordering-data";
+import {
+  buildOrderAlertText,
+  normalizePhoneDigits,
+  whatsappClickUrl,
+} from "@/lib/order-alerts-shared";
 
 export type OrderAlertSettings = {
-  /** Notify restaurant staff on new delivery orders */
   alertOnDelivery: boolean;
-  /** Also notify on dine-in (public menu) */
   alertOnDineIn: boolean;
-  /** E.164 or local digits for CallMeBot / wa.me */
   whatsappPhone: string;
-  /** CallMeBot API key — enables server-side WhatsApp text */
   callMeBotApiKey: string;
-  /** Optional generic webhook (n8n / Make / Zapier) */
   webhookUrl: string;
 };
 
@@ -23,55 +23,11 @@ export const DEFAULT_ALERT_SETTINGS: OrderAlertSettings = {
   webhookUrl: "",
 };
 
-/** Digits only, keep leading country code if present */
-export function normalizePhoneDigits(raw: string): string {
-  const trimmed = String(raw || "").trim();
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return "";
-  // Egyptian local 01xxxxxxxxx → 20…
-  if (digits.startsWith("01") && digits.length === 11) {
-    return `20${digits.slice(1)}`;
-  }
-  if (digits.startsWith("1") && digits.length === 10) {
-    return `20${digits}`;
-  }
-  return digits;
-}
-
-export function buildOrderAlertText(
-  order: Order,
-  storeName: string
-): string {
-  const channelAr =
-    order.channel === "delivery"
-      ? "توصيل"
-      : order.channel === "pos"
-        ? "POS"
-        : "طاولة";
-  const lines = order.lines
-    .map((l) => `• ${l.qty}× ${l.nameAr || l.name}`)
-    .join("\n");
-  const where =
-    order.channel === "delivery"
-      ? `📍 ${order.delivery?.addressLine || "—"}\n📞 ${order.delivery?.phone || "—"}`
-      : order.tableLabel
-        ? `🪑 ${order.zoneLabel ? `${order.zoneLabel} / ` : ""}${order.tableLabel}`
-        : "حضور";
-  const note = order.guestNote ? `\nملاحظة: ${order.guestNote}` : "";
-  return (
-    `طلب جديد — ${storeName}\n` +
-    `#${order.code} · ${channelAr}\n` +
-    `${where}\n` +
-    `${lines}\n` +
-    `الإجمالي: ${order.totals.grandTotal}${note}`
-  );
-}
-
-export function whatsappClickUrl(phone: string, text: string): string | null {
-  const digits = normalizePhoneDigits(phone);
-  if (!digits) return null;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
-}
+export {
+  buildOrderAlertText,
+  normalizePhoneDigits,
+  whatsappClickUrl,
+} from "@/lib/order-alerts-shared";
 
 async function sendCallMeBot(
   phone: string,
@@ -92,8 +48,10 @@ async function sendCallMeBot(
       console.error("[alerts] CallMeBot HTTP", res.status, body.slice(0, 200));
       return { ok: false, error: `CallMeBot ${res.status}` };
     }
-    // API returns 200 even for some errors — soft check
-    if (/error|invalid|not activated/i.test(body) && !/message queued|success/i.test(body)) {
+    if (
+      /error|invalid|not activated/i.test(body) &&
+      !/message queued|success/i.test(body)
+    ) {
       console.error("[alerts] CallMeBot body", body.slice(0, 300));
       return { ok: false, error: body.slice(0, 120) };
     }
@@ -133,10 +91,7 @@ async function sendWebhook(
   }
 }
 
-/**
- * Fire-and-forget staff alert for a new order.
- * Never throws to caller — ordering must not fail if alerts fail.
- */
+/** Fire-and-forget staff alert — never throws to order flow. */
 export async function notifyNewOrder(order: Order): Promise<void> {
   try {
     const settings = await getOrderingSettings();
@@ -194,7 +149,6 @@ export async function notifyNewOrder(order: Order): Promise<void> {
     }
 
     if (!jobs.length && waLink) {
-      // No server send configured — log click link for operators / future UI
       console.info("[alerts] no CallMeBot/webhook — wa.me ready", {
         code: order.code,
         waLink,
