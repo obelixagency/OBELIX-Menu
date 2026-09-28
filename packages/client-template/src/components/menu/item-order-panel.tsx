@@ -14,6 +14,8 @@ type Props = {
   delivery: boolean;
   zonesEnabled: boolean;
   guestNoteEnabled: boolean;
+  /** Remaining stock; null when inventory tracking is off */
+  stockQty?: number | null;
   item: {
     itemId: string;
     name: string;
@@ -38,13 +40,30 @@ function ItemOrderPanelInner({
   delivery,
   zonesEnabled,
   guestNoteEnabled,
+  stockQty = null,
   item,
 }: Props) {
   const cart = useCart();
+  const maxQty =
+    typeof stockQty === "number"
+      ? Math.max(1, Math.min(99, stockQty))
+      : 99;
   const [qty, setQty] = useState(1);
+  const [err, setErr] = useState<string | null>(null);
   const ar = locale === "ar";
 
   function add() {
+    setErr(null);
+    if (typeof stockQty === "number") {
+      const inCart =
+        cart.lines.find((l) => l.itemId === item.itemId)?.qty || 0;
+      if (inCart + qty > stockQty) {
+        setErr(
+          ar ? `المتبقي ${stockQty} فقط` : `Only ${stockQty} left`
+        );
+        return;
+      }
+    }
     cart.addItem(
       {
         itemId: item.itemId,
@@ -79,13 +98,22 @@ function ItemOrderPanelInner({
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-full border border-black/15 text-lg font-bold touch-manipulation"
-              onClick={() => setQty((q) => Math.min(99, q + 1))}
+              onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
               aria-label={ar ? "زيادة" : "Increase"}
             >
               +
             </button>
           </div>
         </div>
+
+        {typeof stockQty === "number" && stockQty <= 10 && (
+          <p className="mt-2 text-xs text-black/45">
+            {ar ? `متبقي ${stockQty}` : `${stockQty} left`}
+          </p>
+        )}
+        {err && (
+          <p className="mt-2 text-xs font-medium text-red-600">{err}</p>
+        )}
 
         <button
           type="button"

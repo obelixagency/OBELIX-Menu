@@ -237,6 +237,7 @@ export function canAccessPath(role: StaffRole, pathname: string): boolean {
       pathname.startsWith("/cashier") ||
       pathname.startsWith("/pos") ||
       pathname.startsWith("/dashboard/orders") ||
+      pathname.startsWith("/dashboard/shifts") ||
       pathname.startsWith("/dashboard/login") ||
       pathname === "/dashboard"
     );

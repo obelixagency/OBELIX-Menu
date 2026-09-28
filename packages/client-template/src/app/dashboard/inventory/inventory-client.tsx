@@ -185,16 +185,46 @@ function InventoryRow({
         )}
       </div>
       <div className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="space-y-1 text-xs">
+        <div className="space-y-1 text-xs">
           <span className="text-black/50">الكمية</span>
-          <Input
-            type="number"
-            min={0}
-            className="h-10 w-24"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-          />
-        </label>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-10 px-0 text-lg"
+              disabled={saving || Number(qty) <= 0}
+              onClick={() => {
+                const next = Math.max(0, (Number(qty) || 0) - 1);
+                setQty(String(next));
+                onSave(row.productId, next, Number(lowAt) || 0);
+              }}
+              aria-label="تقليل"
+            >
+              −
+            </Button>
+            <Input
+              type="number"
+              min={0}
+              className="h-10 w-20 text-center tabular-nums"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-10 px-0 text-lg"
+              disabled={saving}
+              onClick={() => {
+                const next = (Number(qty) || 0) + 1;
+                setQty(String(next));
+                onSave(row.productId, next, Number(lowAt) || 0);
+              }}
+              aria-label="زيادة"
+            >
+              +
+            </Button>
+          </div>
+        </div>
         <label className="space-y-1 text-xs">
           <span className="text-black/50">تنبيه عند ≤</span>
           <Input

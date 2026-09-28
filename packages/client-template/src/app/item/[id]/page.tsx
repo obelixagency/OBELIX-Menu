@@ -16,6 +16,7 @@ import {
   isOrderingEnabled,
   normalizeOrderingFeatures,
 } from "@/lib/extensions/ordering";
+import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
 import { ItemOrderPanel } from "@/components/menu/item-order-panel";
 
@@ -35,6 +36,10 @@ export default async function ItemPage({ params }: Ctx) {
   const currency = brand.currency || "EGP";
   const features = normalizeOrderingFeatures(brand.extensions?.ordering);
   const orderingOn = isOrderingEnabled(features);
+  const invOn = await isInventoryOn();
+  const stockMap = invOn ? await getStockMap() : {};
+  const stockQty = invOn ? (stockMap[product.id] ?? 0) : null;
+  const outOfStock = stockQty !== null && stockQty <= 0;
   const title = pickLocalized(locale, product.name, product.nameEn);
   const desc = pickLocalized(
     locale,
@@ -125,6 +130,11 @@ export default async function ItemPage({ params }: Ctx) {
                 </span>
               </>
             )}
+            {outOfStock && (
+              <span className="rounded bg-black/10 px-2 py-0.5 text-xs font-bold text-black/55">
+                {locale === "en" ? "Sold out" : "نفد"}
+              </span>
+            )}
           </div>
 
           {desc && (
@@ -132,24 +142,33 @@ export default async function ItemPage({ params }: Ctx) {
           )}
 
           {orderingOn ? (
-            <ItemOrderPanel
-              locale={locale}
-              currency={currency}
-              maxItems={features.maxItemsPerOrder || 50}
-              tableOrdering={features.tableOrderingEnabled}
-              delivery={features.deliveryEnabled}
-              zonesEnabled={
-                features.tableOrderingEnabled && features.zonesIndoorOutdoor
-              }
-              guestNoteEnabled={features.guestNoteEnabled}
-              item={{
-                itemId: product.id,
-                name: product.name,
-                nameEn: product.nameEn,
-                unitPrice: pricing.final,
-                image: product.image,
-              }}
-            />
+            outOfStock ? (
+              <p className="rounded-xl border border-black/10 bg-white p-4 text-center text-sm text-black/55">
+                {locale === "en"
+                  ? "This item is currently sold out."
+                  : "الصنف نفد حالياً من المخزون."}
+              </p>
+            ) : (
+              <ItemOrderPanel
+                locale={locale}
+                currency={currency}
+                maxItems={features.maxItemsPerOrder || 50}
+                tableOrdering={features.tableOrderingEnabled}
+                delivery={features.deliveryEnabled}
+                zonesEnabled={
+                  features.tableOrderingEnabled && features.zonesIndoorOutdoor
+                }
+                guestNoteEnabled={features.guestNoteEnabled}
+                stockQty={stockQty}
+                item={{
+                  itemId: product.id,
+                  name: product.name,
+                  nameEn: product.nameEn,
+                  unitPrice: pricing.final,
+                  image: product.image,
+                }}
+              />
+            )
           ) : (
             <p className="text-center text-xs text-black/40">
               {locale === "en"
@@ -176,7 +195,7 @@ export default async function ItemPage({ params }: Ctx) {
             </div>
           )}
 
-          <div className={orderingOn ? "pb-20" : undefined}>
+          <div className={orderingOn && !outOfStock ? "pb-20" : undefined}>
             <PublicMenuFooter displayName={brand.displayName} locale={locale} />
           </div>
         </div>

@@ -30,6 +30,9 @@ type Props = {
   contacts: Contact[];
   reviews: Review[];
   banners: Banner[];
+  /** productId → remaining qty; empty when inventory off */
+  stockMap?: Record<string, number>;
+  inventoryEnabled?: boolean;
 };
 
 export function PublicMenu(props: Props) {
@@ -48,11 +51,14 @@ function PublicMenuInner({
   contacts,
   reviews,
   banners,
+  stockMap = {},
+  inventoryEnabled = false,
   features,
 }: Props & {
   features: ReturnType<typeof normalizeOrderingFeatures>;
 }) {
   const orderingOn = isOrderingEnabled(features);
+  const inventoryOn = inventoryEnabled;
   const mode = brand.languages || "both";
   const currency = brand.currency || "EGP";
   const [locale, setLocale] = useState<Locale>(mode === "en" ? "en" : "ar");
@@ -60,6 +66,16 @@ function PublicMenuInner({
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [rateOpen, setRateOpen] = useState(false);
   const cart = useCart();
+
+  function stockFor(id: string): number | null {
+    if (!inventoryOn) return null;
+    return stockMap[id] ?? 0;
+  }
+
+  function isOut(id: string): boolean {
+    const s = stockFor(id);
+    return s !== null && s <= 0;
+  }
 
   const currentParent = pathIds.length ? pathIds[pathIds.length - 1] : null;
   const childCats = useMemo(
@@ -77,6 +93,24 @@ function PublicMenuInner({
     () => new Map(categories.map((c) => [c.id, c])),
     [categories]
   );
+
+  function addProduct(p: Product) {
+    if (isOut(p.id)) return;
+    const discount = resolveDiscount(p, catMap.get(p.categoryId));
+    const pricing = priceAfterDiscount(p.price, discount);
+    const have = stockFor(p.id);
+    if (have !== null) {
+      const inCart = cart.lines.find((l) => l.itemId === p.id)?.qty || 0;
+      if (inCart + 1 > have) return;
+    }
+    cart.addItem({
+      itemId: p.id,
+      name: p.name,
+      nameEn: p.nameEn,
+      unitPrice: pricing.final,
+      image: p.image,
+    });
+  }
 
   const productsHere = useMemo(() => {
     if (!currentParent) return products.filter((p) => p.available);
@@ -277,22 +311,10 @@ function PublicMenuInner({
                   index={i}
                   featured
                   orderingOn={orderingOn}
+                  outOfStock={isOut(p.id)}
                   onAdd={
-                    orderingOn
-                      ? () => {
-                          const discount = resolveDiscount(
-                            p,
-                            catMap.get(p.categoryId)
-                          );
-                          const pricing = priceAfterDiscount(p.price, discount);
-                          cart.addItem({
-                            itemId: p.id,
-                            name: p.name,
-                            nameEn: p.nameEn,
-                            unitPrice: pricing.final,
-                            image: p.image,
-                          });
-                        }
+                    orderingOn && !isOut(p.id)
+                      ? () => addProduct(p)
                       : undefined
                   }
                 />
@@ -323,22 +345,10 @@ function PublicMenuInner({
                   currency={currency}
                   index={i}
                   orderingOn={orderingOn}
+                  outOfStock={isOut(p.id)}
                   onAdd={
-                    orderingOn
-                      ? () => {
-                          const discount = resolveDiscount(
-                            p,
-                            catMap.get(p.categoryId)
-                          );
-                          const pricing = priceAfterDiscount(p.price, discount);
-                          cart.addItem({
-                            itemId: p.id,
-                            name: p.name,
-                            nameEn: p.nameEn,
-                            unitPrice: pricing.final,
-                            image: p.image,
-                          });
-                        }
+                    orderingOn && !isOut(p.id)
+                      ? () => addProduct(p)
                       : undefined
                   }
                 />
@@ -475,6 +485,7 @@ function ProductCard({
   index,
   featured,
   orderingOn,
+  outOfStock,
   onAdd,
 }: {
   product: Product;
@@ -484,6 +495,7 @@ function ProductCard({
   index: number;
   featured?: boolean;
   orderingOn?: boolean;
+  outOfStock?: boolean;
   onAdd?: () => void;
 }) {
   const discount = resolveDiscount(product, category);
@@ -493,7 +505,9 @@ function ProductCard({
 
   return (
     <div
-      className="flex min-w-0 gap-3 overflow-hidden rounded-xl border border-black/8 bg-white/95 p-3 shadow-sm transition"
+      className={`flex min-w-0 gap-3 overflow-hidden rounded-xl border border-black/8 bg-white/95 p-3 shadow-sm transition ${
+        outOfStock ? "opacity-60" : ""
+      }`}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
       <Link
@@ -520,12 +534,17 @@ function ProductCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3 className="break-words font-semibold leading-snug">{title}</h3>
-            {featured && (
+            {featured && !outOfStock && (
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
                 style={{ background: "var(--brand-accent)", color: "#1a1410" }}
               >
                 {locale === "en" ? "Featured" : "مميز"}
+              </span>
+            )}
+            {outOfStock && (
+              <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-bold text-black/55">
+                {locale === "en" ? "Sold out" : "نفد"}
               </span>
             )}
           </div>
@@ -544,7 +563,7 @@ function ProductCard({
           </div>
         </div>
       </Link>
-      {orderingOn && onAdd && (
+      {orderingOn && onAdd && !outOfStock && (
         <button
           type="button"
           onClick={(e) => {
@@ -557,6 +576,14 @@ function ProductCard({
         >
           +
         </button>
+      )}
+      {orderingOn && outOfStock && (
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full bg-black/10 text-[10px] font-bold text-black/40"
+          aria-hidden
+        >
+          —
+        </span>
       )}
     </div>
   );

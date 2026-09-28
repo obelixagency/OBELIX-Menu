@@ -77,6 +77,9 @@ export default async function DashboardLayout({
               <DashLink href="/bar">Bar</DashLink>
             )}
             {features.posEnabled && (isOwner || role === "cashier") && (
+              <DashLink href="/dashboard/shifts">Shifts</DashLink>
+            )}
+            {features.posEnabled && (isOwner || role === "cashier") && (
               <DashLink href="/pos">POS</DashLink>
             )}
             <DashLink href="/">View menu</DashLink>

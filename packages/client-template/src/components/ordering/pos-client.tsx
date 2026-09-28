@@ -74,6 +74,11 @@ const COPY = {
     cashier: "Cashier",
     note: "Note (optional)",
     powered: "Powered by OBELIX",
+    print: "Print",
+    openShift: "Open shift",
+    closeShift: "Close shift",
+    shiftOpen: "Shift open",
+    shiftClosed: "No open shift",
   },
   ar: {
     all: "الكل",
@@ -95,6 +100,11 @@ const COPY = {
     cashier: "كاشير",
     note: "ملاحظة (اختياري)",
     powered: "مدعوم من OBELIX",
+    print: "طباعة",
+    openShift: "فتح وردية",
+    closeShift: "تقفيل وردية",
+    shiftOpen: "وردية مفتوحة",
+    shiftClosed: "مفيش وردية",
   },
 } as const;
 
@@ -113,23 +123,39 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   const [note, setNote] = useState("");
   const [closing, setClosing] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
+  const [lastReceipt, setLastReceipt] = useState<{
+    code: string;
+    method: PaymentMethod;
+    lines: TicketLine[];
+    total: number;
+  } | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
+  const [shiftOpen, setShiftOpen] = useState<boolean | null>(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/pos/catalog");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      const [catRes, shiftRes] = await Promise.all([
+        fetch("/api/pos/catalog"),
+        fetch("/api/shifts"),
+      ]);
+      const data = await catRes.json();
+      if (!catRes.ok) throw new Error(data.error || "Failed");
       setBrand(data.brand);
       setCategories(data.categories || []);
       setProducts(data.products || []);
       setTables(data.tables || []);
       setTableOrdering(Boolean(data.features?.tableOrderingEnabled));
       const mode = (data.brand?.languages || "both") as LanguageMode;
-      // Ops default: EN when both or en-only; AR only when menu is ar-only
       setLocale(mode === "ar" ? "ar" : "en");
+      if (shiftRes.ok) {
+        const s = await shiftRes.json();
+        setShiftOpen(Boolean(s.open));
+      } else {
+        setShiftOpen(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -220,6 +246,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     if (!lines.length || closing) return;
     setClosing(true);
     setPayError(null);
+    const snapshot = { lines: [...lines], total };
     try {
       const res = await fetch("/api/pos/orders", {
         method: "POST",
@@ -233,14 +260,75 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      setLastCode(data.order?.code || null);
+      const code = data.order?.code || null;
+      setLastCode(code);
+      if (code) {
+        setLastReceipt({
+          code,
+          method,
+          lines: snapshot.lines,
+          total: snapshot.total,
+        });
+      }
       setLines([]);
       setNote("");
+      // refresh stock badges
+      load();
     } catch (err) {
       setPayError(err instanceof Error ? err.message : "Error");
     } finally {
       setClosing(false);
     }
+  }
+
+  async function toggleShift(action: "open" | "close") {
+    setShiftBusy(true);
+    setPayError(null);
+    try {
+      const res = await fetch("/api/shifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, openingCash: 0 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setShiftOpen(action === "open");
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
+
+  function printLastReceipt() {
+    if (!lastReceipt || !brand) return;
+    const rows = lastReceipt.lines
+      .map(
+        (l) =>
+          `<tr><td>${pickLocalized(locale, l.name, l.nameEn)} ×${l.qty}</td><td style="text-align:end">${(l.unitPrice * l.qty).toFixed(2)}</td></tr>`
+      )
+      .join("");
+    const html = `<!doctype html><html dir="${dir}" lang="${locale}"><head><meta charset="utf-8"/><title>${lastReceipt.code}</title>
+<style>
+  body{font-family:system-ui,sans-serif;padding:16px;max-width:280px;margin:0 auto;color:#111}
+  h1{font-size:16px;margin:0 0 4px} .muted{color:#666;font-size:12px}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+  td{padding:4px 0;border-bottom:1px dashed #ddd;vertical-align:top}
+  .total{font-size:16px;font-weight:800;margin-top:12px;display:flex;justify-content:space-between}
+  @media print{body{padding:0}}
+</style></head><body>
+  <h1>${brand.displayName}</h1>
+  <p class="muted">${t.code}: ${lastReceipt.code}</p>
+  <p class="muted">${new Date().toLocaleString(locale === "ar" ? "ar-EG" : "en-GB")}</p>
+  <table>${rows}</table>
+  <div class="total"><span>${t.total}</span><span>${lastReceipt.total.toFixed(2)} ${brand.currency}</span></div>
+  <p class="muted" style="margin-top:12px">${lastReceipt.method.toUpperCase()}</p>
+  <script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+    const w = window.open("", "_blank", "width=360,height=640");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
   }
 
   if (loading) {
@@ -350,6 +438,38 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           </Link>
         </div>
       </header>
+
+      {shiftOpen !== null && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 px-3 py-2 sm:px-4"
+          style={{ background: shiftOpen ? `${accent}22` : "#fff8f0" }}
+        >
+          <p className="text-xs font-medium sm:text-sm">
+            {shiftOpen ? t.shiftOpen : t.shiftClosed}
+          </p>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/shifts"
+              className="text-[11px] opacity-50 underline"
+            >
+              {locale === "ar" ? "التفاصيل" : "Details"}
+            </Link>
+            <button
+              type="button"
+              disabled={shiftBusy}
+              onClick={() => toggleShift(shiftOpen ? "close" : "open")}
+              className="min-h-9 rounded-md border border-black/15 bg-white px-3 text-xs font-bold disabled:opacity-40"
+              style={
+                shiftOpen
+                  ? undefined
+                  : { background: primary, color: "#fff", borderColor: primary }
+              }
+            >
+              {shiftBusy ? "…" : shiftOpen ? t.closeShift : t.openShift}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-0 lg:flex-row">
         {/* Catalog */}
@@ -477,12 +597,23 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               </p>
             )}
             {lastCode && (
-              <p
-                className="rounded-md px-2 py-1.5 text-xs font-medium"
+              <div
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5"
                 style={{ background: `${accent}33` }}
               >
-                {t.closed} — {t.code} {lastCode}
-              </p>
+                <p className="text-xs font-medium">
+                  {t.closed} — {t.code} {lastCode}
+                </p>
+                {lastReceipt && (
+                  <button
+                    type="button"
+                    onClick={printLastReceipt}
+                    className="min-h-8 shrink-0 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
+                  >
+                    {t.print}
+                  </button>
+                )}
+              </div>
             )}
 
             <div className="grid grid-cols-3 gap-2">
