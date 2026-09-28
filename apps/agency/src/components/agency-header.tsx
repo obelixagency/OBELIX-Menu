@@ -2,14 +2,32 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function AgencyHeader() {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  if (pathname === "/login") {
+    return null;
+  }
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+      setOpen(false);
+    }
+  }
 
   return (
     <header className="mb-6 border-b border-white/10 pb-4 sm:mb-10 sm:pb-6">
@@ -40,6 +58,15 @@ export function AgencyHeader() {
               عميل جديد
             </Button>
           </Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={logout}
+            disabled={loggingOut}
+          >
+            {loggingOut ? "…" : "خروج"}
+          </Button>
         </nav>
 
         <Button
@@ -81,6 +108,14 @@ export function AgencyHeader() {
           >
             عميل جديد
           </Link>
+          <button
+            type="button"
+            onClick={logout}
+            disabled={loggingOut}
+            className="min-h-11 rounded-md px-3 py-3 text-start text-sm font-medium text-white/80 hover:bg-white/5"
+          >
+            {loggingOut ? "جاري الخروج…" : "خروج"}
+          </button>
         </div>
       )}
     </header>

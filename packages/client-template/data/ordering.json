@@ -1,0 +1,11 @@
+{
+  "zones": [],
+  "tables": [],
+  "stationRouting": {},
+  "settings": {
+    "guestNoteEnabled": true,
+    "maxItemsPerOrder": 50,
+    "soundEnabled": true
+  },
+  "orders": []
+}

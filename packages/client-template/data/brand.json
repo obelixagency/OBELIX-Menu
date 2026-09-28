@@ -16,9 +16,18 @@
   "menuBackgroundUrl": "/uploads/menu-bg-qahwa.jpg",
   "extensions": {
     "ordering": {
+      "orderFromMenu": false,
+      "tableOrderingEnabled": false,
+      "deliveryEnabled": false,
+      "zonesIndoorOutdoor": false,
+      "cashierScreen": false,
+      "kitchenScreen": false,
+      "baristaScreen": false,
+      "guestNoteEnabled": true,
+      "maxItemsPerOrder": 50,
       "enabled": false,
       "provider": null,
-      "note": "v1 view-only — enable WhatsApp/cart in a later release"
+      "note": "v1 view-only until agency enables order-from-menu"
     }
   }
 }

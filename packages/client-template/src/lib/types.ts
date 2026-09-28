@@ -1,4 +1,11 @@
 import type { OrderingExtension } from "./extensions/ordering";
+export type {
+  OrderingExtension,
+  OrderingFeatures,
+  OrderChannel,
+  OrderStatus,
+  Station,
+} from "./extensions/ordering";
 
 export type LanguageMode = "ar" | "en" | "both";
 

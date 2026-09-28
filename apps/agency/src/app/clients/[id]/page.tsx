@@ -10,6 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { OrderingFlagsEditor } from "@/components/ordering-flags-editor";
+import {
+  DEFAULT_ORDERING_FEATURES,
+  type OrderingFeatures,
+} from "@/lib/types";
 
 type Client = {
   id: string;
@@ -24,6 +29,7 @@ type Client = {
   languages?: "ar" | "en" | "both";
   currency?: string;
   font: string;
+  ordering?: OrderingFeatures;
   status: string;
   lastExportedAt: string | null;
   packagePath: string | null;
@@ -36,19 +42,55 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
+  const [savingFlags, setSavingFlags] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState<OrderingFeatures>(
+    DEFAULT_ORDERING_FEATURES
+  );
 
   useEffect(() => {
     fetch(`/api/clients/${params.id}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) setError(d.error);
-        else setClient(d.client);
+        else {
+          setClient(d.client);
+          setOrdering({
+            ...DEFAULT_ORDERING_FEATURES,
+            ...(d.client.ordering || {}),
+          });
+        }
       })
       .catch(() => setError("تعذّر التحميل"))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  async function handleSaveOrdering() {
+    if (!client) return;
+    setSavingFlags(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordering }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل الحفظ");
+      setClient(data.client);
+      setOrdering({
+        ...DEFAULT_ORDERING_FEATURES,
+        ...(data.client.ordering || {}),
+      });
+      setMessage("تم حفظ ميزات الطلب — أعد تصدير الحزمة لتطبيقها على العميل");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setSavingFlags(false);
+    }
+  }
 
   async function handleExport() {
     if (!client) return;
@@ -234,6 +276,19 @@ export default function ClientDetailPage() {
             {uploadingBg && (
               <p className="text-xs text-white/50">جاري الرفع…</p>
             )}
+          </div>
+
+          <div className="space-y-3">
+            <OrderingFlagsEditor value={ordering} onChange={setOrdering} />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={savingFlags}
+              onClick={handleSaveOrdering}
+              className="w-full sm:w-auto"
+            >
+              {savingFlags ? "جاري حفظ الميزات…" : "حفظ ميزات الطلب"}
+            </Button>
           </div>
 
           <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:flex-wrap">

@@ -42,3 +42,9 @@ next-env.d.ts
 
 # exported client packages (local only)
 /generated
+
+!.env.example
+
+.env
+.env.local
+.env*.local

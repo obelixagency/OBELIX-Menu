@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   description: "توليد منيوهات متعددة العملاء مع Brand Kit — OBELIX Menu",
 };
 
+// Auth-gated agency UI must not be CDN/static cached without session checks.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function RootLayout({
   children,
 }: Readonly<{

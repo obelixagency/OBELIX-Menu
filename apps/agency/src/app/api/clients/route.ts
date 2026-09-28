@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       domain: body.domain,
       dashboardPassword: body.dashboardPassword || "obelix123",
       languages: body.languages || "both",
+      ordering: body.ordering,
     });
     return NextResponse.json({ client }, { status: 201 });
   } catch (err) {

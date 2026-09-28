@@ -1,7 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import type { ClientRecord, CreateClientInput } from "./types";
+import type { ClientRecord, CreateClientInput, OrderingFeatures } from "./types";
+import { normalizeOrderingFeatures } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CLIENTS_FILE = path.join(DATA_DIR, "clients.json");
@@ -27,6 +28,7 @@ export async function listClients(): Promise<ClientRecord[]> {
         ? c.languages
         : ("both" as const),
     menuBackgroundPath: c.menuBackgroundPath ?? null,
+    ordering: normalizeOrderingFeatures(c.ordering),
   }));
   return clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -93,6 +95,7 @@ export async function createClient(
       ? input.languages
       : "both",
     menuBackgroundPath: null,
+    ordering: normalizeOrderingFeatures(input.ordering),
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -107,14 +110,21 @@ export async function createClient(
 
 export async function updateClient(
   id: string,
-  patch: Partial<ClientRecord>
+  patch: Partial<ClientRecord> & { ordering?: Partial<OrderingFeatures> }
 ): Promise<ClientRecord> {
   const clients = await listClients();
   const idx = clients.findIndex((c) => c.id === id);
   if (idx === -1) throw new Error("العميل غير موجود");
+  const nextOrdering = patch.ordering
+    ? normalizeOrderingFeatures({
+        ...clients[idx].ordering,
+        ...patch.ordering,
+      })
+    : clients[idx].ordering;
   clients[idx] = {
     ...clients[idx],
     ...patch,
+    ordering: nextOrdering,
     id: clients[idx].id,
     updatedAt: new Date().toISOString(),
   };

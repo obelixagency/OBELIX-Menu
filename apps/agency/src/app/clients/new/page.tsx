@@ -12,6 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { OrderingFlagsEditor } from "@/components/ordering-flags-editor";
+import {
+  DEFAULT_ORDERING_FEATURES,
+  type OrderingFeatures,
+} from "@/lib/types";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -29,6 +34,9 @@ export default function NewClientPage() {
   const [customCurrency, setCustomCurrency] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
   const [background, setBackground] = useState<File | null>(null);
+  const [ordering, setOrdering] = useState<OrderingFeatures>(
+    DEFAULT_ORDERING_FEATURES
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +60,7 @@ export default function NewClientPage() {
             currency === "CUSTOM"
               ? (customCurrency || "EGP").toUpperCase().slice(0, 8)
               : currency,
+          ordering,
         }),
       });
       const data = await res.json();
@@ -83,9 +92,7 @@ export default function NewClientPage() {
         }
       }
 
-      // Hard navigate so logo/background uploads + Fast Refresh cannot cancel soft push
-      window.location.assign(`/clients/${data.client.id}`);
-      return;
+      router.push(`/clients/${data.client.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ غير متوقع");
     } finally {
@@ -262,6 +269,7 @@ export default function NewClientPage() {
                 className="text-left"
               />
             </div>
+            <OrderingFlagsEditor value={ordering} onChange={setOrdering} />
             {error && (
               <p className="rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
                 {error}

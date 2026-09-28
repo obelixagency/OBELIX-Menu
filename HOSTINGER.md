@@ -72,9 +72,19 @@ docker compose -f docker/docker-compose.agency.yml up -d --build
 - البيانات: `apps/agency/data/`
 - الحزم المُصدَّرة: `apps/agency/generated/<slug>/`
 
-### متغيرات البيئة (وكالة)
+### متغيرات البيئة (وكالة) — إلزامي للإنتاج
 
-الوكالة حالياً لا تحتاج SMTP. إن أضفت لاحقاً أسراراً، ضعها في ملف `.env` بجانب الـ compose أو في لوحة Hostinger.
+داشبورد الوكالة محمية بكلمة مرور. ضع في `.env` بجوار تشغيل الوكالة (أو في لوحة Hostinger / Passenger):
+
+```bash
+AGENCY_PASSWORD=strong-random-password
+SESSION_SECRET=long-random-secret
+```
+
+- صفحة الدخول: `/login`
+- بدون جلسة صحيحة: الصفحات → تحويل لـ `/login`، وواجهات `/api/*` → `401`
+- لا ترفع `.env` للعامة؛ امنع فهرسة المجلدات (`Options -Indexes`)
+- حزم العملاء المُصدَّرة ما زالت تستخدم `DASHBOARD_PASSWORD` + `SESSION_SECRET` على مضيف العميل
 
 ### DNS
 - `agency.yourdomain.com` → A → IP الـ VPS
