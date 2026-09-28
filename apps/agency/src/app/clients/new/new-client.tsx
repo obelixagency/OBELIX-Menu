@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OrderingFlagsEditor } from "@/components/ordering-flags-editor";
+import { useAgencyLocale } from "@/components/locale-provider";
 import {
   DEFAULT_ORDERING_FEATURES,
   type OrderingFeatures,
@@ -20,6 +21,7 @@ import {
 
 export default function NewClientForm() {
   const router = useRouter();
+  const { t } = useAgencyLocale();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -64,7 +66,7 @@ export default function NewClientForm() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "فشل الإنشاء");
+      if (!res.ok) throw new Error(data.error || t.newClient.createFailed);
 
       if (logo) {
         const fd = new FormData();
@@ -75,7 +77,7 @@ export default function NewClientForm() {
         });
         if (!logoRes.ok) {
           const logoData = await logoRes.json();
-          throw new Error(logoData.error || "فشل رفع اللوجو");
+          throw new Error(logoData.error || t.newClient.logoFailed);
         }
       }
 
@@ -88,13 +90,13 @@ export default function NewClientForm() {
         );
         if (!bgRes.ok) {
           const bgData = await bgRes.json();
-          throw new Error(bgData.error || "فشل رفع خلفية المنيو");
+          throw new Error(bgData.error || t.newClient.bgFailed);
         }
       }
 
       router.push(`/clients/${data.client.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "خطأ غير متوقع");
+      setError(err instanceof Error ? err.message : t.newClient.unexpected);
     } finally {
       setSaving(false);
     }
@@ -104,25 +106,23 @@ export default function NewClientForm() {
     <main className="mx-auto w-full max-w-xl">
       <Card>
         <CardHeader>
-          <CardTitle>عميل جديد + Brand Kit</CardTitle>
-          <CardDescription>
-            الاسم، الـ slug، اللوجو، والألوان — ثم تولّد الحزمة من صفحة العميل.
-          </CardDescription>
+          <CardTitle>{t.newClient.title}</CardTitle>
+          <CardDescription>{t.newClient.subtitle}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name">اسم العميل (عربي)</Label>
+              <Label htmlFor="name">{t.newClient.name}</Label>
               <Input
                 id="name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: قهوة البيت"
+                placeholder={t.newClient.namePlaceholder}
               />
             </div>
             <div>
-              <Label htmlFor="slug">Slug (دومين فرعي / مجلد)</Label>
+              <Label htmlFor="slug">{t.newClient.slug}</Label>
               <Input
                 id="slug"
                 value={slug}
@@ -133,7 +133,7 @@ export default function NewClientForm() {
               />
             </div>
             <div>
-              <Label htmlFor="domain">الدومين المستهدف</Label>
+              <Label htmlFor="domain">{t.newClient.domain}</Label>
               <Input
                 id="domain"
                 value={domain}
@@ -144,7 +144,7 @@ export default function NewClientForm() {
               />
             </div>
             <div>
-              <Label htmlFor="logo">اللوجو</Label>
+              <Label htmlFor="logo">{t.newClient.logo}</Label>
               <Input
                 id="logo"
                 type="file"
@@ -153,7 +153,7 @@ export default function NewClientForm() {
               />
             </div>
             <div>
-              <Label htmlFor="background">خلفية المنيو العام (اختياري)</Label>
+              <Label htmlFor="background">{t.newClient.background}</Label>
               <Input
                 id="background"
                 type="file"
@@ -161,13 +161,12 @@ export default function NewClientForm() {
                 onChange={(e) => setBackground(e.target.files?.[0] || null)}
               />
               <p className="mt-1 text-xs text-white/40">
-                صورة كاملة العرض خلف المنيو — مع طبقة شفافة للقراءة على الموبايل
-                والكمبيوتر.
+                {t.newClient.backgroundHint}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label htmlFor="primary">أساسي</Label>
+                <Label htmlFor="primary">{t.newClient.primary}</Label>
                 <Input
                   id="primary"
                   type="color"
@@ -177,7 +176,7 @@ export default function NewClientForm() {
                 />
               </div>
               <div>
-                <Label htmlFor="accent">تمييز</Label>
+                <Label htmlFor="accent">{t.newClient.accent}</Label>
                 <Input
                   id="accent"
                   type="color"
@@ -187,7 +186,7 @@ export default function NewClientForm() {
                 />
               </div>
               <div>
-                <Label htmlFor="surface">سطح</Label>
+                <Label htmlFor="surface">{t.newClient.surface}</Label>
                 <Input
                   id="surface"
                   type="color"
@@ -201,19 +200,19 @@ export default function NewClientForm() {
               className="rounded-lg border border-white/10 p-4"
               style={{ background: surface }}
             >
-              <p className="text-sm text-black/50">معاينة سريعة</p>
+              <p className="text-sm text-black/50">{t.newClient.preview}</p>
               <p className="mt-1 text-lg font-bold" style={{ color: primary }}>
-                {name || "اسم العميل"}
+                {name || t.newClient.previewName}
               </p>
               <span
                 className="mt-2 inline-block rounded px-2 py-1 text-xs font-medium"
                 style={{ background: accent, color: "#1a1a1a" }}
               >
-                مميز
+                {t.newClient.previewBadge}
               </span>
             </div>
             <div>
-              <Label htmlFor="languages">لغة المنيو العام</Label>
+              <Label htmlFor="languages">{t.newClient.languages}</Label>
               <select
                 id="languages"
                 value={languages}
@@ -222,30 +221,29 @@ export default function NewClientForm() {
                 }
                 className="flex h-11 w-full rounded-md border border-white/15 bg-[var(--obx-bg-elevated)] px-3 text-sm text-white"
               >
-                <option value="ar">عربي فقط</option>
-                <option value="en">English only</option>
-                <option value="both">عربي + English (تبديل في المنيو)</option>
+                <option value="ar">{t.newClient.languagesAr}</option>
+                <option value="en">{t.newClient.languagesEn}</option>
+                <option value="both">{t.newClient.languagesBoth}</option>
               </select>
               <p className="mt-1 text-xs text-white/40">
-                يحدد حقول الأسماء/الأوصاف في داشبورد العميل وتبديل اللغة في المنيو
-                العام.
+                {t.newClient.languagesHint}
               </p>
             </div>
             <div>
-              <Label htmlFor="currency">العملة</Label>
+              <Label htmlFor="currency">{t.newClient.currency}</Label>
               <select
                 id="currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 className="flex h-11 w-full rounded-md border border-white/15 bg-[var(--obx-bg-elevated)] px-3 text-sm text-white"
               >
-                <option value="EGP">EGP — جنيه مصري</option>
+                <option value="EGP">EGP — Egyptian Pound</option>
                 <option value="USD">USD — US Dollar</option>
                 <option value="EUR">EUR — Euro</option>
-                <option value="SAR">SAR — ريال سعودي</option>
-                <option value="AED">AED — درهم إماراتي</option>
+                <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="AED">AED — UAE Dirham</option>
                 <option value="GBP">GBP — Pound Sterling</option>
-                <option value="CUSTOM">أخرى / Other…</option>
+                <option value="CUSTOM">{t.newClient.currencyCustom}</option>
               </select>
               {currency === "CUSTOM" && (
                 <Input
@@ -259,7 +257,7 @@ export default function NewClientForm() {
               )}
             </div>
             <div>
-              <Label htmlFor="password">كلمة مرور داشبورد العميل</Label>
+              <Label htmlFor="password">{t.newClient.password}</Label>
               <Input
                 id="password"
                 type="text"
@@ -277,7 +275,7 @@ export default function NewClientForm() {
             )}
             <div className="flex flex-col gap-2 pt-2 sm:flex-row">
               <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-                {saving ? "جاري الحفظ…" : "حفظ العميل"}
+                {saving ? t.newClient.saving : t.newClient.save}
               </Button>
               <Button
                 type="button"
@@ -285,7 +283,7 @@ export default function NewClientForm() {
                 className="w-full sm:w-auto"
                 onClick={() => router.push("/")}
               >
-                إلغاء
+                {t.newClient.cancel}
               </Button>
             </div>
           </form>

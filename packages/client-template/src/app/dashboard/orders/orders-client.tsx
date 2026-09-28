@@ -8,7 +8,7 @@ type Order = {
   id: string;
   code: string;
   createdAt: string;
-  channel: "dine_in" | "delivery";
+  channel: "dine_in" | "delivery" | "pos";
   tableLabel?: string | null;
   zoneLabel?: string | null;
   delivery?: { phone: string; addressLine: string } | null;
@@ -87,6 +87,7 @@ export function OrdersDashboardClient({ currency }: { currency: string }) {
           <option value="all">كل القنوات</option>
           <option value="dine_in">طاولة</option>
           <option value="delivery">توصيل</option>
+          <option value="pos">POS</option>
         </select>
         <Link
           href="/cashier"
@@ -127,8 +128,13 @@ export function OrdersDashboardClient({ currency }: { currency: string }) {
                 </p>
                 <p className="text-xs text-black/45">
                   {new Date(o.createdAt).toLocaleString("ar-EG")} ·{" "}
-                  {o.channel === "delivery" ? "توصيل" : "طاولة"}
+                  {o.channel === "delivery"
+                    ? "توصيل"
+                    : o.channel === "pos"
+                      ? "POS"
+                      : "طاولة"}
                   {o.tableLabel ? ` · ${o.tableLabel}` : ""}
+                  {o.channel === "pos" && !o.tableLabel ? " · walk-in" : ""}
                   {o.delivery ? ` · ${o.delivery.phone}` : ""}
                 </p>
               </div>

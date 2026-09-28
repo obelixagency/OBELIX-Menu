@@ -12,6 +12,7 @@ apps/agency/data/uploads/*
 !apps/agency/data/uploads/.gitkeep
 apps/agency/generated/*
 !apps/agency/generated/.gitkeep
+packages/client-template/data/users.json
 *.zip
 .turbo
 .vercel

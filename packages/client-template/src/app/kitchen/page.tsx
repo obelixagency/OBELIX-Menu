@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { StaffOrdersBoard } from "@/components/ordering/staff-orders-board";
+import { requireStaffAccess } from "@/lib/require-staff";
 
 export const dynamic = "force-dynamic";
 
 export default async function KitchenPage() {
-  if (!(await isAuthenticated())) redirect("/dashboard/login");
+  await requireStaffAccess("/kitchen", ["owner", "kitchen"]);
   const brand = await readBrand();
   const f = normalizeOrderingFeatures(brand.extensions?.ordering);
   if (!f.orderFromMenu || !f.kitchenScreen) {
@@ -15,11 +15,10 @@ export default async function KitchenPage() {
   }
   return (
     <StaffOrdersBoard
-      title="المطبخ"
+      title="Kitchen"
       role="station"
-      stationFilter="kitchen"
       currency={brand.currency || "EGP"}
-      showAllLines={false}
+      stationFilter="kitchen"
     />
   );
 }

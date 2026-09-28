@@ -59,7 +59,10 @@ export type Order = {
   delivery?: DeliveryInfo | null;
   status: OrderStatus;
   guestNote?: string;
-  source: "public_menu";
+  source: "public_menu" | "pos";
+  /** Set when closed from POS counter */
+  paymentMethod?: "cash" | "card" | "other" | null;
+  paidAt?: string | null;
   lines: OrderLine[];
   totals: {
     subtotal: number;
@@ -414,6 +417,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (input.channel === "delivery" && !feat.deliveryEnabled) {
     throw new Error("التوصيل غير مفعّل");
   }
+  if (input.channel !== "dine_in" && input.channel !== "delivery") {
+    throw new Error("قناة طلب غير صالحة");
+  }
   if (!input.lines?.length) {
     throw new Error("السلة فارغة");
   }
@@ -528,6 +534,136 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
 
   store.orders.unshift(order);
   // Soft retention: keep last 500
+  if (store.orders.length > 500) {
+    store.orders = store.orders.slice(0, 500);
+  }
+  await saveStore(store);
+  return order;
+}
+
+export type CreatePosOrderInput = {
+  tableId?: string | null;
+  guestNote?: string;
+  paymentMethod: "cash" | "card" | "other";
+  lines: { itemId: string; qty: number }[];
+};
+
+/** Authenticated POS ticket close — walk-in or optional table */
+export async function createPosOrder(
+  input: CreatePosOrderInput
+): Promise<Order> {
+  const brand = await readBrand();
+  const feat = brand.extensions?.ordering;
+  if (!feat?.orderFromMenu) {
+    throw new Error("Ordering is disabled");
+  }
+  if (!feat.posEnabled) {
+    throw new Error("POS is disabled");
+  }
+  const method = input.paymentMethod;
+  if (method !== "cash" && method !== "card" && method !== "other") {
+    throw new Error("Invalid payment method");
+  }
+  if (!input.lines?.length) {
+    throw new Error("Ticket is empty");
+  }
+
+  const settings = await getOrderingSettings();
+  const totalQty = input.lines.reduce((s, l) => s + Number(l.qty || 0), 0);
+  if (totalQty <= 0) throw new Error("Ticket is empty");
+  if (totalQty > settings.maxItemsPerOrder) {
+    throw new Error(`Max ${settings.maxItemsPerOrder} items per ticket`);
+  }
+
+  const store = await ensureStore();
+  let tableLabel: string | null = null;
+  let zoneLabel: string | null = null;
+  let tableId: string | null = null;
+  let zoneId: string | null = null;
+
+  if (input.tableId) {
+    if (!feat.tableOrderingEnabled) {
+      throw new Error("Table ordering is disabled");
+    }
+    const table = store.tables.find((t) => t.id === input.tableId && t.active);
+    if (!table) throw new Error("Table unavailable");
+    tableId = table.id;
+    tableLabel = table.labelAr || table.label;
+    if (table.zoneId) {
+      const zone = store.zones.find((z) => z.id === table.zoneId && z.active);
+      if (zone) {
+        zoneId = zone.id;
+        zoneLabel = zone.nameAr || zone.name;
+      }
+    }
+  }
+
+  const lines: OrderLine[] = [];
+  for (const raw of input.lines) {
+    const qty = Math.floor(Number(raw.qty));
+    if (!raw.itemId || qty < 1) continue;
+    const product = await getProduct(raw.itemId);
+    if (!product || !product.available) {
+      throw new Error("Item unavailable — refresh catalog");
+    }
+    const category = product.categoryId
+      ? await getCategory(product.categoryId)
+      : null;
+    const discount = resolveDisc(product, category);
+    const pricing = priceDisc(product.price, discount);
+    const station = product.categoryId
+      ? await resolveStationForCategory(product.categoryId)
+      : "unassigned";
+    lines.push({
+      itemId: product.id,
+      name: product.nameEn || product.name,
+      nameAr: product.name,
+      qty,
+      unitPrice: pricing.final,
+      lineTotal: Math.round(pricing.final * qty * 100) / 100,
+      station,
+    });
+  }
+  if (!lines.length) throw new Error("Ticket is empty");
+
+  const subtotal =
+    Math.round(lines.reduce((s, l) => s + l.lineTotal, 0) * 100) / 100;
+
+  const now = new Date().toISOString();
+  let code = makeOrderCode();
+  for (let i = 0; i < 5; i++) {
+    if (!store.orders.some((o) => o.code === code)) break;
+    code = makeOrderCode();
+  }
+
+  const needsStation = lines.some(
+    (l) => l.station === "kitchen" || l.station === "barista"
+  );
+
+  const order: Order = {
+    id: randomUUID(),
+    code,
+    createdAt: now,
+    updatedAt: now,
+    channel: "pos",
+    tableId,
+    zoneId,
+    tableLabel,
+    zoneLabel,
+    delivery: null,
+    status: needsStation ? "preparing" : "served",
+    guestNote:
+      settings.guestNoteEnabled && input.guestNote
+        ? input.guestNote.trim().slice(0, 500)
+        : undefined,
+    source: "pos",
+    paymentMethod: method,
+    paidAt: now,
+    lines,
+    totals: { subtotal, grandTotal: subtotal },
+  };
+
+  store.orders.unshift(order);
   if (store.orders.length > 500) {
     store.orders = store.orders.slice(0, 500);
   }

@@ -225,6 +225,12 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     ),
     "utf8"
   );
+  // Staff users — seeded on first login when staffAccountsEnabled
+  await fs.writeFile(
+    path.join(packageDir, "data", "users.json"),
+    JSON.stringify({ users: [] }, null, 2),
+    "utf8"
+  );
   await fs.writeFile(
     path.join(packageDir, ".env.example"),
     `DASHBOARD_PASSWORD=${client.dashboardPassword}\nPORT=3000\n`,

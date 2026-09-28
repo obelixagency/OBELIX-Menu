@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { readBrand } from "@/lib/brand";
+import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { DashboardMobileNav } from "@/components/dashboard/mobile-nav";
 
@@ -14,45 +15,71 @@ export default async function DashboardLayout({
   const tableOn = orderingOn && features.tableOrderingEnabled;
   const stationsOn =
     orderingOn && (features.kitchenScreen || features.baristaScreen);
+  const staffOn = features.staffAccountsEnabled;
+  const authed = await isAuthenticated();
+  const role = authed ? (await getSessionRole()) || "owner" : "owner";
+  const isOwner = !authed || role === "owner";
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--brand-surface)]">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col md:flex-row">
-        {/* Desktop sidebar */}
         <aside className="hidden border-black/10 bg-white md:flex md:w-56 md:shrink-0 md:flex-col md:border-l">
           <div className="p-4">
-            <p className="text-xs text-black/40">لوحة التحكم</p>
+            <p className="text-xs text-black/40">Dashboard</p>
             <p className="truncate font-bold text-[var(--brand-primary)]">
               {brand.displayName}
             </p>
+            {authed && staffOn && (
+              <p className="mt-1 text-[10px] uppercase tracking-wide text-black/40">
+                {role}
+              </p>
+            )}
           </div>
           <nav className="flex flex-col gap-1 px-2 pb-3">
-            <DashLink href="/dashboard">الرئيسية</DashLink>
-            <DashLink href="/dashboard/categories">الفئات</DashLink>
-            <DashLink href="/dashboard/products">المنتجات</DashLink>
-            <DashLink href="/dashboard/banners">العروض</DashLink>
-            <DashLink href="/dashboard/contacts">التواصل</DashLink>
-            <DashLink href="/dashboard/reviews">التقييمات</DashLink>
-            {orderingOn && (
+            {isOwner && (
               <>
-                <DashLink href="/dashboard/orders">الطلبات</DashLink>
-                {tableOn && (
-                  <DashLink href="/dashboard/tables">الطاولات</DashLink>
-                )}
-                {stationsOn && (
-                  <DashLink href="/dashboard/stations">المحطات</DashLink>
-                )}
+                <DashLink href="/dashboard">Home</DashLink>
+                <DashLink href="/dashboard/categories">Categories</DashLink>
+                <DashLink href="/dashboard/products">Products</DashLink>
+                <DashLink href="/dashboard/banners">Banners</DashLink>
+                <DashLink href="/dashboard/contacts">Contacts</DashLink>
+                <DashLink href="/dashboard/reviews">Reviews</DashLink>
               </>
             )}
-            <DashLink href="/dashboard/settings">الإعدادات</DashLink>
-            <DashLink href="/">عرض المنيو</DashLink>
+            {orderingOn && (isOwner || role === "cashier") && (
+              <DashLink href="/dashboard/orders">Orders</DashLink>
+            )}
+            {isOwner && tableOn && (
+              <DashLink href="/dashboard/tables">Tables</DashLink>
+            )}
+            {isOwner && stationsOn && (
+              <DashLink href="/dashboard/stations">Stations</DashLink>
+            )}
+            {isOwner && staffOn && (
+              <DashLink href="/dashboard/staff">Staff</DashLink>
+            )}
+            {isOwner && (
+              <DashLink href="/dashboard/settings">Settings</DashLink>
+            )}
+            {features.cashierScreen && (isOwner || role === "cashier") && (
+              <DashLink href="/cashier">Cashier</DashLink>
+            )}
+            {features.kitchenScreen && (isOwner || role === "kitchen") && (
+              <DashLink href="/kitchen">Kitchen</DashLink>
+            )}
+            {features.baristaScreen && (isOwner || role === "barista") && (
+              <DashLink href="/bar">Bar</DashLink>
+            )}
+            {features.posEnabled && (isOwner || role === "cashier") && (
+              <DashLink href="/pos">POS</DashLink>
+            )}
+            <DashLink href="/">View menu</DashLink>
           </nav>
         </aside>
 
-        {/* Mobile top bar */}
         <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-black/10 bg-white px-4 py-3 md:hidden">
           <div className="min-w-0">
-            <p className="text-[10px] text-black/40">لوحة التحكم</p>
+            <p className="text-[10px] text-black/40">Dashboard</p>
             <p className="truncate text-sm font-bold text-[var(--brand-primary)]">
               {brand.displayName}
             </p>
@@ -61,18 +88,20 @@ export default async function DashboardLayout({
             href="/"
             className="shrink-0 rounded-md border border-black/10 px-3 py-2 text-xs font-medium"
           >
-            المنيو
+            Menu
           </Link>
         </div>
 
         <main className="flex-1 p-4 pb-24 sm:p-6 md:pb-6">{children}</main>
       </div>
 
-      <DashboardMobileNav
-        orderingOn={orderingOn}
-        tableOn={tableOn}
-        stationsOn={stationsOn}
-      />
+      {isOwner && (
+        <DashboardMobileNav
+          orderingOn={orderingOn}
+          tableOn={tableOn}
+          stationsOn={stationsOn}
+        />
+      )}
     </div>
   );
 }

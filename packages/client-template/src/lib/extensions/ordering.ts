@@ -7,7 +7,7 @@ export type OrderingProvider = "whatsapp" | "cart" | "external" | null;
 
 export type Station = "kitchen" | "barista" | "unassigned";
 
-export type OrderChannel = "dine_in" | "delivery";
+export type OrderChannel = "dine_in" | "delivery" | "pos";
 
 export type OrderStatus =
   | "new"
@@ -15,6 +15,8 @@ export type OrderStatus =
   | "ready"
   | "served"
   | "cancelled";
+
+export type PosPaymentMethod = "cash" | "card" | "other";
 
 export type OrderingFeatures = {
   /** Master switch — when false, ignore all other ordering flags for UX */
@@ -25,6 +27,10 @@ export type OrderingFeatures = {
   cashierScreen: boolean;
   kitchenScreen: boolean;
   baristaScreen: boolean;
+  /** Full POS sell screen — requires orderFromMenu */
+  posEnabled: boolean;
+  /** Multi-user staff logins (users.json) — when off, shared dashboard password */
+  staffAccountsEnabled: boolean;
   /** Soft settings (also overridable in ordering.json) */
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
@@ -44,6 +50,8 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   cashierScreen: false,
   kitchenScreen: false,
   baristaScreen: false,
+  posEnabled: false,
+  staffAccountsEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
   enabled: false,
@@ -72,6 +80,8 @@ export function normalizeOrderingFeatures(
   merged.cashierScreen = Boolean(merged.cashierScreen);
   merged.kitchenScreen = Boolean(merged.kitchenScreen);
   merged.baristaScreen = Boolean(merged.baristaScreen);
+  merged.posEnabled = Boolean(merged.posEnabled);
+  merged.staffAccountsEnabled = Boolean(merged.staffAccountsEnabled);
   merged.guestNoteEnabled = merged.guestNoteEnabled !== false;
   const max = Number(merged.maxItemsPerOrder);
   merged.maxItemsPerOrder =
@@ -106,4 +116,15 @@ export function hasAnyOrderChannel(
   ext?: Partial<OrderingFeatures> | null
 ): boolean {
   return hasTableOrdering(ext) || hasDeliveryOrdering(ext);
+}
+
+export function hasPos(ext?: Partial<OrderingFeatures> | null): boolean {
+  const f = normalizeOrderingFeatures(ext);
+  return f.orderFromMenu && f.posEnabled;
+}
+
+export function hasStaffAccounts(
+  ext?: Partial<OrderingFeatures> | null
+): boolean {
+  return normalizeOrderingFeatures(ext).staffAccountsEnabled;
 }

@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { StaffOrdersBoard } from "@/components/ordering/staff-orders-board";
+import { requireStaffAccess } from "@/lib/require-staff";
 
 export const dynamic = "force-dynamic";
 
 export default async function BarPage() {
-  if (!(await isAuthenticated())) redirect("/dashboard/login");
+  await requireStaffAccess("/bar", ["owner", "barista"]);
   const brand = await readBrand();
   const f = normalizeOrderingFeatures(brand.extensions?.ordering);
   if (!f.orderFromMenu || !f.baristaScreen) {
@@ -15,11 +15,10 @@ export default async function BarPage() {
   }
   return (
     <StaffOrdersBoard
-      title="الباريستا"
+      title="Bar"
       role="station"
-      stationFilter="barista"
       currency={brand.currency || "EGP"}
-      showAllLines={false}
+      stationFilter="barista"
     />
   );
 }

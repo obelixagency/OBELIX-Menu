@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAgencyLocale } from "@/components/locale-provider";
 
 type Client = {
   id: string;
@@ -27,6 +28,7 @@ type Client = {
 
 export function HomeClient() {
   const router = useRouter();
+  const { t, locale } = useAgencyLocale();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,27 +46,27 @@ export function HomeClient() {
         if (!d) return;
         setClients(d.clients || []);
       })
-      .catch(() => setError("تعذّر تحميل العملاء"))
+      .catch(() => setError(t.home.loadError))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, t.home.loadError]);
+
+  const dateLocale = locale === "ar" ? "ar-EG" : "en-GB";
 
   return (
     <main className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-white">العملاء</h2>
-          <p className="text-sm text-white/50">
-            كل عميل = حزمة منيو + داشبورد قابلة للرفع على دومين منفصل
-          </p>
+          <h2 className="text-xl font-bold text-white">{t.home.title}</h2>
+          <p className="text-sm text-white/50">{t.home.subtitle}</p>
         </div>
         <Link href="/clients/new" className="w-full sm:w-auto">
           <Button type="button" className="w-full sm:w-auto">
-            إنشاء عميل
+            {t.home.create}
           </Button>
         </Link>
       </div>
 
-      {loading && <p className="text-sm text-white/50">جاري التحميل…</p>}
+      {loading && <p className="text-sm text-white/50">{t.home.loading}</p>}
       {error && (
         <p className="rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-300">
           {error}
@@ -74,14 +76,12 @@ export function HomeClient() {
       {!loading && !error && clients.length === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>لا يوجد عملاء بعد</CardTitle>
-            <CardDescription>
-              ابدأ بإنشاء أول عميل مع اللوجو والألوان، ثم صدّر الحزمة.
-            </CardDescription>
+            <CardTitle>{t.home.emptyTitle}</CardTitle>
+            <CardDescription>{t.home.emptyDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/clients/new">
-              <Button className="w-full sm:w-auto">إنشاء أول عميل</Button>
+              <Button className="w-full sm:w-auto">{t.home.createFirst}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -134,10 +134,10 @@ export function HomeClient() {
                   style={{ background: c.colors.accent }}
                   title="Accent"
                 />
-                <span className="mr-auto text-xs text-white/40">
+                <span className="ms-auto text-xs text-white/40">
                   {c.lastExportedAt
-                    ? `آخر تصدير: ${new Date(c.lastExportedAt).toLocaleDateString("ar-EG")}`
-                    : "لم يُصدَّر بعد"}
+                    ? `${t.home.lastExport}: ${new Date(c.lastExportedAt).toLocaleDateString(dateLocale)}`
+                    : t.home.neverExported}
                 </span>
               </CardContent>
             </Card>

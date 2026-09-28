@@ -15,6 +15,10 @@ export type OrderingFeatures = {
   cashierScreen: boolean;
   kitchenScreen: boolean;
   baristaScreen: boolean;
+  /** Full POS sell screen — requires orderFromMenu */
+  posEnabled: boolean;
+  /** Multi-user staff logins on the client package */
+  staffAccountsEnabled: boolean;
   guestNoteEnabled?: boolean;
   maxItemsPerOrder?: number;
 };
@@ -27,6 +31,8 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   cashierScreen: false,
   kitchenScreen: false,
   baristaScreen: false,
+  posEnabled: false,
+  staffAccountsEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
 };
@@ -44,6 +50,8 @@ export function normalizeOrderingFeatures(
     cashierScreen: Boolean(raw?.cashierScreen),
     kitchenScreen: Boolean(raw?.kitchenScreen),
     baristaScreen: Boolean(raw?.baristaScreen),
+    posEnabled: Boolean(raw?.posEnabled),
+    staffAccountsEnabled: Boolean(raw?.staffAccountsEnabled),
     guestNoteEnabled: raw?.guestNoteEnabled !== false,
     maxItemsPerOrder:
       Number(raw?.maxItemsPerOrder) > 0

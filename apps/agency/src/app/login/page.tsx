@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAgencyLocale } from "@/components/locale-provider";
 
 export default function AgencyLoginPage() {
   const router = useRouter();
+  const { t } = useAgencyLocale();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,13 +27,13 @@ export default function AgencyLoginPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
-          typeof data.error === "string" ? data.error : "فشل الدخول"
+          typeof data.error === "string" ? data.error : t.login.failed
         );
       }
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "خطأ");
+      setError(err instanceof Error ? err.message : t.login.error);
     } finally {
       setLoading(false);
     }
@@ -50,9 +52,7 @@ export default function AgencyLoginPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-white">
             OBELIX Menu
           </h1>
-          <p className="mt-1 text-sm text-white/50">
-            دخول داشبورد الوكالة
-          </p>
+          <p className="mt-1 text-sm text-white/50">{t.login.subtitle}</p>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export default function AgencyLoginPage() {
         className="w-full max-w-sm space-y-4 rounded-xl border border-white/10 bg-[var(--obx-bg-card)] p-5 sm:p-6"
       >
         <div>
-          <Label htmlFor="password">كلمة المرور</Label>
+          <Label htmlFor="password">{t.login.password}</Label>
           <Input
             id="password"
             name="password"
@@ -81,7 +81,7 @@ export default function AgencyLoginPage() {
           </p>
         )}
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "جاري الدخول…" : "دخول"}
+          {loading ? t.login.submitting : t.login.submit}
         </Button>
       </form>
     </main>

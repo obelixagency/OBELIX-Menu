@@ -10,7 +10,7 @@ type Order = {
   code: string;
   createdAt: string;
   updatedAt: string;
-  channel: "dine_in" | "delivery";
+  channel: "dine_in" | "delivery" | "pos";
   tableLabel?: string | null;
   zoneLabel?: string | null;
   delivery?: { phone: string; addressLine: string } | null;
@@ -226,6 +226,13 @@ export function StaffOrdersBoard({
                   <>
                     <span className="text-[#FACF1C]">توصيل</span> ·{" "}
                     {o.delivery?.phone} · {o.delivery?.addressLine}
+                  </>
+                ) : o.channel === "pos" ? (
+                  <>
+                    <span className="text-[#FACF1C]">POS</span>
+                    {o.tableLabel
+                      ? ` · ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+                      : " · walk-in"}
                   </>
                 ) : (
                   <>

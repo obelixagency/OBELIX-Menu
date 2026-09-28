@@ -16,18 +16,20 @@
   "menuBackgroundUrl": "/uploads/menu-bg-qahwa.jpg",
   "extensions": {
     "ordering": {
-      "orderFromMenu": false,
-      "tableOrderingEnabled": false,
-      "deliveryEnabled": false,
-      "zonesIndoorOutdoor": false,
-      "cashierScreen": false,
-      "kitchenScreen": false,
-      "baristaScreen": false,
+      "orderFromMenu": true,
+      "tableOrderingEnabled": true,
+      "deliveryEnabled": true,
+      "zonesIndoorOutdoor": true,
+      "cashierScreen": true,
+      "kitchenScreen": true,
+      "baristaScreen": true,
+      "posEnabled": true,
+      "staffAccountsEnabled": true,
       "guestNoteEnabled": true,
       "maxItemsPerOrder": 50,
-      "enabled": false,
-      "provider": null,
-      "note": "v1 view-only until agency enables order-from-menu"
+      "enabled": true,
+      "provider": "cart",
+      "note": "Local demo — all ordering flags ON for MVP testing"
     }
   }
 }

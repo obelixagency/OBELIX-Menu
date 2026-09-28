@@ -2,71 +2,36 @@
 
 import type { OrderingFeatures } from "@/lib/types";
 import { DEFAULT_ORDERING_FEATURES } from "@/lib/types";
+import { useAgencyLocale } from "@/components/locale-provider";
 
 type Props = {
   value: OrderingFeatures;
   onChange: (next: OrderingFeatures) => void;
 };
 
-const FLAGS: {
+const FLAG_KEYS: {
   key: keyof OrderingFeatures;
-  label: string;
-  hint: string;
   needsMaster?: boolean;
   needsTable?: boolean;
 }[] = [
-  {
-    key: "orderFromMenu",
-    label: "الطلب من المنيو (ماستر)",
-    hint: "لو مطفّى مفيش أي واجهة طلب — لا طاولة ولا دليفري",
-  },
-  {
-    key: "tableOrderingEnabled",
-    label: "طلب الطاولة / داين-إن",
-    hint: "الزائر يختار طاولة من قائمة المالك",
-    needsMaster: true,
-  },
-  {
-    key: "deliveryEnabled",
-    label: "التوصيل",
-    hint: "الزائر يدخل موبايل + عنوان — الدفع عند الاستلام",
-    needsMaster: true,
-  },
-  {
-    key: "zonesIndoorOutdoor",
-    label: "مناطق داخلي / خارجي",
-    hint: "يظهر فقط مع طلب الطاولة",
-    needsMaster: true,
-    needsTable: true,
-  },
-  {
-    key: "cashierScreen",
-    label: "شاشة الكاشير",
-    hint: "مسار /cashier + تنبيه صوتي",
-    needsMaster: true,
-  },
-  {
-    key: "kitchenScreen",
-    label: "شاشة المطبخ",
-    hint: "مسار /kitchen — أصناف موجّهة للمطبخ حسب الفئة",
-    needsMaster: true,
-  },
-  {
-    key: "baristaScreen",
-    label: "شاشة الباريستا",
-    hint: "مسار /bar — أصناف موجّهة للبار حسب الفئة",
-    needsMaster: true,
-  },
+  { key: "orderFromMenu" },
+  { key: "tableOrderingEnabled", needsMaster: true },
+  { key: "deliveryEnabled", needsMaster: true },
+  { key: "zonesIndoorOutdoor", needsMaster: true, needsTable: true },
+  { key: "cashierScreen", needsMaster: true },
+  { key: "kitchenScreen", needsMaster: true },
+  { key: "baristaScreen", needsMaster: true },
+  { key: "posEnabled", needsMaster: true },
+  { key: "staffAccountsEnabled" },
 ];
 
 export function OrderingFlagsEditor({ value, onChange }: Props) {
+  const { t } = useAgencyLocale();
   const v = { ...DEFAULT_ORDERING_FEATURES, ...value };
+  const flagCopy = t.ordering.flags;
 
   function toggle(key: keyof OrderingFeatures, checked: boolean) {
     const next = { ...v, [key]: checked };
-    if (key === "orderFromMenu" && !checked) {
-      // keep stored flags; UX ignores them when master off
-    }
     if (key === "tableOrderingEnabled" && !checked) {
       next.zonesIndoorOutdoor = false;
     }
@@ -77,22 +42,24 @@ export function OrderingFlagsEditor({ value, onChange }: Props) {
     <div className="space-y-3 rounded-lg border border-white/10 bg-black/30 p-4">
       <div>
         <p className="text-sm font-semibold text-[var(--obx-yellow)]">
-          ميزات الطلب — ما يشتريه العميل
+          {t.ordering.title}
         </p>
         <p className="mt-1 text-xs text-white/45">
-          بعد التعديل: احفظ ثم أعد تصدير الحزمة. على السيرفر الحي احتفظ بملف{" "}
+          {t.ordering.hintBefore}{" "}
           <code className="rounded bg-white/10 px-1" dir="ltr">
             data/ordering.json
           </code>{" "}
-          (طاولات/طلبات).
+          {t.ordering.hintAfter}
         </p>
       </div>
       <ul className="space-y-3">
-        {FLAGS.map((f) => {
+        {FLAG_KEYS.map((f) => {
           const disabled =
             (f.needsMaster && !v.orderFromMenu) ||
             (f.needsTable && !v.tableOrderingEnabled);
           const checked = Boolean(v[f.key]);
+          const copy = flagCopy[f.key as keyof typeof flagCopy];
+          if (!copy) return null;
           return (
             <li key={f.key}>
               <label
@@ -108,8 +75,8 @@ export function OrderingFlagsEditor({ value, onChange }: Props) {
                   onChange={(e) => toggle(f.key, e.target.checked)}
                 />
                 <span className="min-w-0">
-                  <span className="block text-sm text-white">{f.label}</span>
-                  <span className="block text-xs text-white/45">{f.hint}</span>
+                  <span className="block text-sm text-white">{copy.label}</span>
+                  <span className="block text-xs text-white/45">{copy.hint}</span>
                 </span>
               </label>
             </li>
