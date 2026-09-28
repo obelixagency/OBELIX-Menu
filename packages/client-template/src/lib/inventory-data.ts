@@ -189,3 +189,95 @@ export async function restoreStock(
   store.items = [...map.values()];
   await saveStore(store);
 }
+
+/**
+ * Stock snapshot + sold qty in a period (from non-cancelled orders).
+ */
+export async function buildInventoryReport(opts?: {
+  from?: string;
+  to?: string;
+}): Promise<{
+  from: string;
+  to: string;
+  lowCount: number;
+  outCount: number;
+  items: {
+    productId: string;
+    name: string;
+    nameEn?: string;
+    qty: number;
+    lowAt: number;
+    low: boolean;
+    out: boolean;
+    soldQty: number;
+  }[];
+}> {
+  const { dayRangeIso, readOrderingStore } = await import("./ordering-data");
+  const timezone = "Africa/Cairo";
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  let from = opts?.from;
+  let to = opts?.to;
+  if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) from = dayRangeIso(from).from;
+  if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) to = dayRangeIso(to).to;
+  if (!from || !to) {
+    const range = dayRangeIso(today);
+    from = from || range.from;
+    to = to || range.to;
+  }
+  if (from > to) {
+    const s = from;
+    from = to;
+    to = s;
+  }
+
+  const [stock, products, store] = await Promise.all([
+    listInventory(),
+    listProducts(),
+    readOrderingStore(),
+  ]);
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const sold = new Map<string, number>();
+
+  for (const o of store.orders) {
+    if (o.status === "cancelled") continue;
+    if (o.createdAt < from || o.createdAt > to) continue;
+    for (const line of o.lines || []) {
+      sold.set(line.itemId, (sold.get(line.itemId) || 0) + line.qty);
+    }
+  }
+
+  const items = stock.map((s) => {
+    const p = byId.get(s.productId);
+    const soldQty = sold.get(s.productId) || 0;
+    return {
+      productId: s.productId,
+      name: p?.name || s.productId,
+      nameEn: p?.nameEn,
+      qty: s.qty,
+      lowAt: s.lowAt,
+      low: s.qty <= s.lowAt,
+      out: s.qty <= 0,
+      soldQty,
+    };
+  });
+
+  items.sort((a, b) => {
+    if (a.out !== b.out) return a.out ? -1 : 1;
+    if (a.low !== b.low) return a.low ? -1 : 1;
+    return b.soldQty - a.soldQty;
+  });
+
+  return {
+    from,
+    to,
+    lowCount: items.filter((i) => i.low).length,
+    outCount: items.filter((i) => i.out).length,
+    items,
+  };
+}

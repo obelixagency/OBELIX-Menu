@@ -21,12 +21,64 @@ type Row = {
   low: boolean;
 };
 
+type ReportItem = {
+  productId: string;
+  name: string;
+  nameEn?: string;
+  qty: number;
+  lowAt: number;
+  low: boolean;
+  out: boolean;
+  soldQty: number;
+};
+
+function todayCairoYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function shiftYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return dt.toISOString().slice(0, 10);
+}
+
 export function InventoryClient() {
+  const today = todayCairoYmd();
   const [items, setItems] = useState<Row[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [fromDay, setFromDay] = useState(shiftYmd(today, -6));
+  const [toDay, setToDay] = useState(today);
+  const [reportItems, setReportItems] = useState<ReportItem[]>([]);
+  const [reportMeta, setReportMeta] = useState<{
+    lowCount: number;
+    outCount: number;
+  } | null>(null);
+
+  const loadReport = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/inventory/report?from=${encodeURIComponent(fromDay)}&to=${encodeURIComponent(toDay)}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل تقرير المخزون");
+      setReportItems(data.report?.items || []);
+      setReportMeta({
+        lowCount: data.report?.lowCount || 0,
+        outCount: data.report?.outCount || 0,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    }
+  }, [fromDay, toDay]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,12 +89,13 @@ export function InventoryClient() {
       if (!res.ok) throw new Error(data.error || "فشل التحميل");
       setEnabled(data.enabled !== false);
       setItems(data.items || []);
+      if (data.enabled !== false) await loadReport();
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadReport]);
 
   useEffect(() => {
     load();
@@ -83,6 +136,7 @@ export function InventoryClient() {
   }
 
   const lowCount = items.filter((i) => i.low).length;
+  const outCount = items.filter((i) => i.qty <= 0).length;
 
   return (
     <div className="space-y-4">
@@ -92,7 +146,7 @@ export function InventoryClient() {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-black/45">الأصناف المتتبَّعة</p>
@@ -109,11 +163,101 @@ export function InventoryClient() {
                 lowCount ? "text-red-600" : "text-[var(--brand-primary)]"
               }`}
             >
-              {lowCount}
+              {reportMeta?.lowCount ?? lowCount}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-black/45">نفد (٠)</p>
+            <p
+              className={`text-2xl font-bold ${
+                outCount ? "text-red-600" : "text-[var(--brand-primary)]"
+              }`}
+            >
+              {reportMeta?.outCount ?? outCount}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">حركة الفترة</CardTitle>
+          <CardDescription>
+            الكمية المباعة من الطلبات غير الملغاة + الرصيد الحالي
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="space-y-1 text-xs">
+              <span className="text-black/50">من</span>
+              <Input
+                type="date"
+                className="h-10 w-40"
+                value={fromDay}
+                max={toDay}
+                onChange={(e) => setFromDay(e.target.value)}
+              />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span className="text-black/50">إلى</span>
+              <Input
+                type="date"
+                className="h-10 w-40"
+                value={toDay}
+                max={today}
+                min={fromDay}
+                onChange={(e) => setToDay(e.target.value)}
+              />
+            </label>
+            <Button type="button" className="h-10" onClick={loadReport}>
+              تحديث التقرير
+            </Button>
+          </div>
+          {reportItems.length === 0 ? (
+            <p className="text-sm text-black/45">لا بيانات</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[28rem] text-start text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-black/45">
+                    <th className="py-2 pe-2 font-medium">الصنف</th>
+                    <th className="py-2 pe-2 font-medium">مباع</th>
+                    <th className="py-2 pe-2 font-medium">رصيد</th>
+                    <th className="py-2 font-medium">حالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportItems.map((r) => (
+                    <tr key={r.productId} className="border-b border-black/5">
+                      <td className="py-2 pe-2">
+                        <span className="font-medium">{r.name}</span>
+                        {r.nameEn && (
+                          <span className="ms-2 text-xs text-black/35" dir="ltr">
+                            {r.nameEn}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pe-2 tabular-nums">{r.soldQty}</td>
+                      <td className="py-2 pe-2 tabular-nums">{r.qty}</td>
+                      <td className="py-2 text-xs font-medium">
+                        {r.out ? (
+                          <span className="text-red-600">نفد</span>
+                        ) : r.low ? (
+                          <span className="text-amber-700">نقص</span>
+                        ) : (
+                          <span className="text-black/40">OK</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

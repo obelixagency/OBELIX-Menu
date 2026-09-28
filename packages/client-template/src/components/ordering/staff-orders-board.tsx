@@ -54,30 +54,45 @@ export function StaffOrdersBoard({
   const [error, setError] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>("");
+  const [channelFilter, setChannelFilter] = useState<
+    "all" | "delivery" | "dine_in" | "pos"
+  >("all");
   const knownNew = useRef<Set<string>>(new Set());
   const audioCtx = useRef<AudioContext | null>(null);
 
-  const playBeep = useCallback(() => {
-    if (!soundOn) return;
-    try {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      if (!audioCtx.current) audioCtx.current = new Ctx();
-      const ctx = audioCtx.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = 880;
-      gain.gain.value = 0.08;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.18);
-    } catch {
-      // ignore
-    }
-  }, [soundOn]);
+  const playBeep = useCallback(
+    (kind: "normal" | "delivery" = "normal") => {
+      if (!soundOn) return;
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        if (!audioCtx.current) audioCtx.current = new Ctx();
+        const ctx = audioCtx.current;
+        const beep = (freq: number, start: number, dur: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = freq;
+          gain.gain.value = kind === "delivery" ? 0.12 : 0.08;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + start);
+          osc.stop(ctx.currentTime + start + dur);
+        };
+        if (kind === "delivery") {
+          beep(660, 0, 0.12);
+          beep(880, 0.16, 0.12);
+          beep(1100, 0.32, 0.18);
+        } else {
+          beep(880, 0, 0.18);
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [soundOn]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -94,7 +109,10 @@ export function StaffOrdersBoard({
       const newOnes = list.filter(
         (o) => o.status === "new" && !knownNew.current.has(o.id)
       );
-      if (knownNew.current.size > 0 && newOnes.length > 0) playBeep();
+      if (knownNew.current.size > 0 && newOnes.length > 0) {
+        const hasDelivery = newOnes.some((o) => o.channel === "delivery");
+        playBeep(hasDelivery ? "delivery" : "normal");
+      }
       for (const o of list) {
         if (o.status === "new") knownNew.current.add(o.id);
       }
@@ -155,6 +173,13 @@ export function StaffOrdersBoard({
     return map[o.status];
   }
 
+  const deliveryNew = orders.filter(
+    (o) => o.channel === "delivery" && o.status === "new"
+  ).length;
+  const visible = orders.filter(
+    (o) => channelFilter === "all" || o.channel === channelFilter
+  );
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white" dir="rtl">
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur">
@@ -162,6 +187,11 @@ export function StaffOrdersBoard({
           <h1 className="text-xl font-bold text-[#FACF1C]">{title}</h1>
           <p className="text-xs text-white/45">
             آخر تحديث: {lastRefresh || "—"} · تحديث تلقائي كل ٤ ثوانٍ
+            {deliveryNew > 0 && (
+              <span className="ms-2 rounded bg-[#FACF1C] px-1.5 py-0.5 font-bold text-black">
+                توصيل جديد ×{deliveryNew}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -185,6 +215,30 @@ export function StaffOrdersBoard({
         </div>
       </header>
 
+      <div className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 pt-3">
+        {(
+          [
+            ["all", "الكل"],
+            ["delivery", "توصيل"],
+            ["dine_in", "طاولة"],
+            ["pos", "POS"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setChannelFilter(key)}
+            className={`min-h-9 rounded-full px-3 text-xs font-semibold ${
+              channelFilter === key
+                ? "bg-[#FACF1C] text-black"
+                : "border border-white/20 text-white/70"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {error && (
         <p className="m-4 rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-200">
           {error}
@@ -192,7 +246,7 @@ export function StaffOrdersBoard({
       )}
 
       <ul className="mx-auto grid max-w-6xl gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        {orders.map((o) => {
+        {visible.map((o) => {
           const lines = showAllLines
             ? o.lines
             : stationFilter
@@ -203,9 +257,11 @@ export function StaffOrdersBoard({
             <li
               key={o.id}
               className={`rounded-xl border p-4 ${
-                o.status === "new"
-                  ? "border-[#FACF1C] bg-[#FACF1C]/10"
-                  : "border-white/10 bg-white/5"
+                o.channel === "delivery" && o.status === "new"
+                  ? "border-orange-400 bg-orange-400/15 ring-1 ring-orange-400/40"
+                  : o.status === "new"
+                    ? "border-[#FACF1C] bg-[#FACF1C]/10"
+                    : "border-white/10 bg-white/5"
               }`}
             >
               <div className="mb-2 flex items-start justify-between gap-2">

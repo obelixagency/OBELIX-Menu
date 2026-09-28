@@ -10,6 +10,10 @@ import {
 } from "@/lib/i18n";
 import type { LanguageMode } from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
+import {
+  downloadEscPosFile,
+  printThermalReceipt,
+} from "@/lib/thermal-print";
 
 type CatalogProduct = {
   id: string;
@@ -74,7 +78,8 @@ const COPY = {
     cashier: "Cashier",
     note: "Note (optional)",
     powered: "Powered by OBELIX",
-    print: "Print",
+    print: "Print 80mm",
+    escPos: "ESC/POS",
     openShift: "Open shift",
     closeShift: "Close shift",
     shiftOpen: "Shift open",
@@ -100,7 +105,8 @@ const COPY = {
     cashier: "كاشير",
     note: "ملاحظة (اختياري)",
     powered: "مدعوم من OBELIX",
-    print: "طباعة",
+    print: "طباعة ٨٠مم",
+    escPos: "ESC/POS",
     openShift: "فتح وردية",
     closeShift: "تقفيل وردية",
     shiftOpen: "وردية مفتوحة",
@@ -300,35 +306,34 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     }
   }
 
+  function receiptPayload() {
+    if (!lastReceipt || !brand) return null;
+    return {
+      storeName: brand.displayName,
+      code: lastReceipt.code,
+      currency: brand.currency,
+      method: lastReceipt.method,
+      total: lastReceipt.total,
+      locale,
+      dir,
+      lines: lastReceipt.lines.map((l) => ({
+        name: pickLocalized(locale, l.name, l.nameEn),
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+      })),
+    };
+  }
+
   function printLastReceipt() {
-    if (!lastReceipt || !brand) return;
-    const rows = lastReceipt.lines
-      .map(
-        (l) =>
-          `<tr><td>${pickLocalized(locale, l.name, l.nameEn)} ×${l.qty}</td><td style="text-align:end">${(l.unitPrice * l.qty).toFixed(2)}</td></tr>`
-      )
-      .join("");
-    const html = `<!doctype html><html dir="${dir}" lang="${locale}"><head><meta charset="utf-8"/><title>${lastReceipt.code}</title>
-<style>
-  body{font-family:system-ui,sans-serif;padding:16px;max-width:280px;margin:0 auto;color:#111}
-  h1{font-size:16px;margin:0 0 4px} .muted{color:#666;font-size:12px}
-  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
-  td{padding:4px 0;border-bottom:1px dashed #ddd;vertical-align:top}
-  .total{font-size:16px;font-weight:800;margin-top:12px;display:flex;justify-content:space-between}
-  @media print{body{padding:0}}
-</style></head><body>
-  <h1>${brand.displayName}</h1>
-  <p class="muted">${t.code}: ${lastReceipt.code}</p>
-  <p class="muted">${new Date().toLocaleString(locale === "ar" ? "ar-EG" : "en-GB")}</p>
-  <table>${rows}</table>
-  <div class="total"><span>${t.total}</span><span>${lastReceipt.total.toFixed(2)} ${brand.currency}</span></div>
-  <p class="muted" style="margin-top:12px">${lastReceipt.method.toUpperCase()}</p>
-  <script>window.onload=()=>{window.print();}</script>
-</body></html>`;
-    const w = window.open("", "_blank", "width=360,height=640");
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
+    const payload = receiptPayload();
+    if (!payload) return;
+    printThermalReceipt(payload);
+  }
+
+  function downloadLastEscPos() {
+    const payload = receiptPayload();
+    if (!payload) return;
+    downloadEscPosFile(payload);
   }
 
   if (loading) {
@@ -605,13 +610,23 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                   {t.closed} — {t.code} {lastCode}
                 </p>
                 {lastReceipt && (
-                  <button
-                    type="button"
-                    onClick={printLastReceipt}
-                    className="min-h-8 shrink-0 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
-                  >
-                    {t.print}
-                  </button>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={printLastReceipt}
+                      className="min-h-8 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
+                    >
+                      {t.print}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadLastEscPos}
+                      title="ESC/POS text"
+                      className="min-h-8 rounded-md border border-black/15 bg-white px-2 text-[10px] font-bold opacity-70"
+                    >
+                      {t.escPos}
+                    </button>
+                  </div>
                 )}
               </div>
             )}

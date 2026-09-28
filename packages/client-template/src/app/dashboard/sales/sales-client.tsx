@@ -77,8 +77,54 @@ function shiftYmd(ymd: string, deltaDays: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+function downloadCsv(report: SalesReport, currency: string) {
+  const lines: string[] = [];
+  lines.push("section,key,count,revenue");
+  lines.push(`summary,revenue,${report.orderCount},${report.revenue}`);
+  lines.push(`summary,averageTicket,1,${report.averageTicket}`);
+  for (const [k, v] of Object.entries(report.byChannel)) {
+    lines.push(`channel,${k},${v.count},${v.revenue}`);
+  }
+  for (const [k, v] of Object.entries(report.byPayment)) {
+    lines.push(`payment,${k},${v.count},${v.revenue}`);
+  }
+  for (const item of report.topItems) {
+    lines.push(
+      `item,"${(item.nameAr || item.name).replace(/"/g, '""')}",${item.qty},${item.revenue}`
+    );
+  }
+  lines.push("");
+  lines.push("code,createdAt,channel,payment,status,grandTotal,currency");
+  for (const o of report.recentOrders) {
+    lines.push(
+      [
+        o.code,
+        o.createdAt,
+        o.channel,
+        o.paymentMethod || "unpaid",
+        o.status,
+        o.grandTotal,
+        currency,
+      ].join(",")
+    );
+  }
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sales-${report.from.slice(0, 10)}_${report.to.slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function SalesClient({ currency }: { currency: string }) {
-  const [day, setDay] = useState(todayCairoYmd);
+  const today = todayCairoYmd();
+  const [mode, setMode] = useState<"day" | "range">("day");
+  const [day, setDay] = useState(today);
+  const [fromDay, setFromDay] = useState(shiftYmd(today, -6));
+  const [toDay, setToDay] = useState(today);
   const [report, setReport] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +133,11 @@ export function SalesClient({ currency }: { currency: string }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/sales/report?day=${encodeURIComponent(day)}`, {
+      const qs =
+        mode === "day"
+          ? `day=${encodeURIComponent(day)}`
+          : `from=${encodeURIComponent(fromDay)}&to=${encodeURIComponent(toDay)}`;
+      const res = await fetch(`/api/sales/report?${qs}`, {
         cache: "no-store",
       });
       const data = await res.json();
@@ -99,7 +149,7 @@ export function SalesClient({ currency }: { currency: string }) {
     } finally {
       setLoading(false);
     }
-  }, [day]);
+  }, [mode, day, fromDay, toDay]);
 
   useEffect(() => {
     load();
@@ -107,36 +157,104 @@ export function SalesClient({ currency }: { currency: string }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant={mode === "day" ? "default" : "outline"}
+          className="h-10"
+          onClick={() => setMode("day")}
+        >
+          يوم واحد
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "range" ? "default" : "outline"}
+          className="h-10"
+          onClick={() => setMode("range")}
+        >
+          فترة
+        </Button>
+      </div>
+
       <div className="flex flex-wrap items-end gap-2">
-        <label className="space-y-1 text-sm">
-          <span className="block text-black/50">اليوم (توقيت القاهرة)</span>
-          <input
-            type="date"
-            className="h-11 rounded-md border border-black/15 bg-white px-3 text-sm"
-            value={day}
-            max={todayCairoYmd()}
-            onChange={(e) => setDay(e.target.value)}
-          />
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11"
-          onClick={() => setDay(shiftYmd(day, -1))}
-        >
-          يوم سابق
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11"
-          onClick={() => setDay(todayCairoYmd())}
-        >
-          اليوم
-        </Button>
+        {mode === "day" ? (
+          <>
+            <label className="space-y-1 text-sm">
+              <span className="block text-black/50">اليوم (توقيت القاهرة)</span>
+              <input
+                type="date"
+                className="h-11 rounded-md border border-black/15 bg-white px-3 text-sm"
+                value={day}
+                max={today}
+                onChange={(e) => setDay(e.target.value)}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => setDay(shiftYmd(day, -1))}
+            >
+              يوم سابق
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11"
+              onClick={() => setDay(today)}
+            >
+              اليوم
+            </Button>
+          </>
+        ) : (
+          <>
+            <label className="space-y-1 text-sm">
+              <span className="block text-black/50">من</span>
+              <input
+                type="date"
+                className="h-11 rounded-md border border-black/15 bg-white px-3 text-sm"
+                value={fromDay}
+                max={toDay}
+                onChange={(e) => setFromDay(e.target.value)}
+              />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="block text-black/50">إلى</span>
+              <input
+                type="date"
+                className="h-11 rounded-md border border-black/15 bg-white px-3 text-sm"
+                value={toDay}
+                max={today}
+                min={fromDay}
+                onChange={(e) => setToDay(e.target.value)}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11"
+              onClick={() => {
+                setFromDay(shiftYmd(today, -6));
+                setToDay(today);
+              }}
+            >
+              آخر ٧ أيام
+            </Button>
+          </>
+        )}
         <Button type="button" className="h-11" onClick={load} disabled={loading}>
           {loading ? "جاري التحديث…" : "تحديث"}
         </Button>
+        {report && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            onClick={() => downloadCsv(report, currency)}
+          >
+            تصدير CSV
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -148,13 +266,23 @@ export function SalesClient({ currency }: { currency: string }) {
       {!loading && report && report.orderCount === 0 && report.cancelledCount === 0 && (
         <Card>
           <CardContent className="p-6 text-sm text-black/55">
-            لا مبيعات في هذا اليوم بعد — أقفل تذكرة من الـ POS أو انتظر طلبات المنيو.
+            لا مبيعات في هذه الفترة — أقفل تذكرة من الـ POS أو انتظر طلبات المنيو.
           </CardContent>
         </Card>
       )}
 
       {report && (report.orderCount > 0 || report.cancelledCount > 0) && (
         <>
+          <p className="text-xs text-black/45">
+            الفترة:{" "}
+            {new Date(report.from).toLocaleString("ar-EG", {
+              timeZone: "Africa/Cairo",
+            })}{" "}
+            →{" "}
+            {new Date(report.to).toLocaleString("ar-EG", {
+              timeZone: "Africa/Cairo",
+            })}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               title="الإيراد"
@@ -205,7 +333,7 @@ export function SalesClient({ currency }: { currency: string }) {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">أكثر الأصناف مبيعاً</CardTitle>
-              <CardDescription>حسب الإيراد في اليوم المحدد</CardDescription>
+              <CardDescription>حسب الإيراد في الفترة</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {report.topItems.length === 0 ? (
@@ -233,8 +361,8 @@ export function SalesClient({ currency }: { currency: string }) {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">طلبات اليوم</CardTitle>
-              <CardDescription>غير الملغاة · الأحدث أولاً</CardDescription>
+              <CardTitle className="text-base">الطلبات</CardTitle>
+              <CardDescription>غير الملغاة · الأحدث أولاً (حتى ٤٠)</CardDescription>
             </CardHeader>
             <CardContent>
               {report.recentOrders.length === 0 ? (
@@ -255,12 +383,16 @@ export function SalesClient({ currency }: { currency: string }) {
                     <tbody>
                       {report.recentOrders.map((o) => (
                         <tr key={o.id} className="border-b border-black/5">
-                          <td className="py-2 pe-2 font-mono text-xs">{o.code}</td>
+                          <td className="py-2 pe-2 font-mono text-xs">
+                            {o.code}
+                          </td>
                           <td className="py-2 pe-2 text-black/55">
-                            {new Date(o.createdAt).toLocaleTimeString("ar-EG", {
+                            {new Date(o.createdAt).toLocaleString("ar-EG", {
+                              timeZone: "Africa/Cairo",
+                              month: "short",
+                              day: "numeric",
                               hour: "2-digit",
                               minute: "2-digit",
-                              timeZone: "Africa/Cairo",
                             })}
                           </td>
                           <td className="py-2 pe-2">
