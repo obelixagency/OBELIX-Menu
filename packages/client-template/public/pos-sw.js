@@ -14,7 +14,13 @@ function scopeBase() {
 
 self.addEventListener("install", (event) => {
   const base = scopeBase();
-  const urls = [`${base}/pos`, `${base}/pos-sw.js`].filter(Boolean);
+  const urls = [
+    `${base}/pos`,
+    `${base}/pos-sw.js`,
+    `${base}/icons/icon-192.png`,
+    `${base}/icons/icon-512.png`,
+    `${base}/manifest.webmanifest`,
+  ].filter(Boolean);
   event.waitUntil(
     caches
       .open(CACHE)
