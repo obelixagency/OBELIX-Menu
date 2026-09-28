@@ -4,6 +4,7 @@ import { readBrand } from "@/lib/brand";
 import { hasPos, normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { listCategories, listProducts } from "@/lib/menu-data";
 import { listTables, noStoreHeaders } from "@/lib/ordering-data";
+import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
 import {
   priceAfterDiscount,
   resolveDiscount,
@@ -27,10 +28,12 @@ export async function GET() {
   }
 
   const features = normalizeOrderingFeatures(brand.extensions?.ordering);
-  const [categories, products, tables] = await Promise.all([
+  const invOn = await isInventoryOn();
+  const [categories, products, tables, stock] = await Promise.all([
     listCategories(),
     listProducts(),
     features.tableOrderingEnabled ? listTables() : Promise.resolve([]),
+    invOn ? getStockMap() : Promise.resolve({} as Record<string, number>),
   ]);
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
@@ -40,6 +43,7 @@ export async function GET() {
       const cat = p.categoryId ? catMap.get(p.categoryId) : null;
       const discount = resolveDiscount(p, cat || undefined);
       const pricing = priceAfterDiscount(p.price, discount);
+      const stockQty = invOn ? (stock[p.id] ?? 0) : null;
       return {
         id: p.id,
         categoryId: p.categoryId,
@@ -47,6 +51,8 @@ export async function GET() {
         nameEn: p.nameEn || p.name,
         price: pricing.final,
         image: p.image,
+        stockQty,
+        outOfStock: invOn ? (stock[p.id] ?? 0) <= 0 : false,
       };
     });
 
@@ -71,6 +77,7 @@ export async function GET() {
       },
       features: {
         tableOrderingEnabled: features.tableOrderingEnabled,
+        inventoryEnabled: invOn,
       },
       categories: cats,
       products: catalog,

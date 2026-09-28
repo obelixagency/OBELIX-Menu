@@ -19,6 +19,8 @@ export type OrderingFeatures = {
   posEnabled: boolean;
   /** Multi-user staff logins on the client package */
   staffAccountsEnabled: boolean;
+  /** Track stock and deduct on orders */
+  inventoryEnabled: boolean;
   guestNoteEnabled?: boolean;
   maxItemsPerOrder?: number;
 };
@@ -33,6 +35,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   baristaScreen: false,
   posEnabled: false,
   staffAccountsEnabled: false,
+  inventoryEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
 };
@@ -52,6 +55,7 @@ export function normalizeOrderingFeatures(
     baristaScreen: Boolean(raw?.baristaScreen),
     posEnabled: Boolean(raw?.posEnabled),
     staffAccountsEnabled: Boolean(raw?.staffAccountsEnabled),
+    inventoryEnabled: Boolean(raw?.inventoryEnabled),
     guestNoteEnabled: raw?.guestNoteEnabled !== false,
     maxItemsPerOrder:
       Number(raw?.maxItemsPerOrder) > 0

@@ -18,6 +18,8 @@ type CatalogProduct = {
   nameEn: string;
   price: number;
   image: string | null;
+  stockQty?: number | null;
+  outOfStock?: boolean;
 };
 
 type CatalogCategory = {
@@ -171,13 +173,26 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   );
 
   function addProduct(p: CatalogProduct) {
+    if (p.outOfStock) {
+      setPayError(locale === "ar" ? "نفد المخزون" : "Out of stock");
+      return;
+    }
     setLastCode(null);
     setPayError(null);
     setLines((prev) => {
       const i = prev.findIndex((l) => l.itemId === p.id);
+      const nextQty = i >= 0 ? prev[i].qty + 1 : 1;
+      if (typeof p.stockQty === "number" && nextQty > p.stockQty) {
+        setPayError(
+          locale === "ar"
+            ? `المتبقي ${p.stockQty} فقط`
+            : `Only ${p.stockQty} left`
+        );
+        return prev;
+      }
       if (i >= 0) {
         const next = [...prev];
-        next[i] = { ...next[i], qty: next[i].qty + 1 };
+        next[i] = { ...next[i], qty: nextQty };
         return next;
       }
       return [
@@ -364,17 +379,29 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               <button
                 key={p.id}
                 type="button"
+                disabled={p.outOfStock}
                 onClick={() => addProduct(p)}
-                className="flex min-h-[5.5rem] flex-col items-start justify-between rounded-xl border border-black/10 bg-white p-3 text-start shadow-sm transition active:scale-[0.98]"
+                className={cn(
+                  "flex min-h-[5.5rem] flex-col items-start justify-between rounded-xl border border-black/10 bg-white p-3 text-start shadow-sm transition active:scale-[0.98]",
+                  p.outOfStock && "cursor-not-allowed opacity-45"
+                )}
               >
                 <span className="line-clamp-2 text-sm font-semibold">
                   {pickLocalized(locale, p.name, p.nameEn)}
                 </span>
-                <span
-                  className="mt-2 text-sm font-bold"
-                  style={{ color: primary }}
-                >
-                  {formatPrice(p.price, brand.currency, locale)}
+                <span className="mt-auto flex w-full items-end justify-between gap-1 pt-2">
+                  <span className="text-sm font-bold" style={{ color: primary }}>
+                    {formatPrice(p.price, brand.currency, locale)}
+                  </span>
+                  {typeof p.stockQty === "number" && (
+                    <span className="text-[10px] text-black/40">
+                      {p.outOfStock
+                        ? locale === "ar"
+                          ? "نفد"
+                          : "0"
+                        : `×${p.stockQty}`}
+                    </span>
+                  )}
                 </span>
               </button>
             ))}

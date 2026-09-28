@@ -23,6 +23,7 @@ const FLAG_KEYS: {
   { key: "baristaScreen", needsMaster: true },
   { key: "posEnabled", needsMaster: true },
   { key: "staffAccountsEnabled" },
+  { key: "inventoryEnabled", needsMaster: true },
 ];
 
 export function OrderingFlagsEditor({ value, onChange }: Props) {

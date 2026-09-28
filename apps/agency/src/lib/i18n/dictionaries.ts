@@ -159,6 +159,10 @@ export const dictionaries = {
           label: "Staff accounts",
           hint: "Multi-user login on the client (owner / cashier / kitchen / barista). When off, one shared password.",
         },
+        inventoryEnabled: {
+          label: "Inventory",
+          hint: "Track stock per product; deduct on menu and POS orders; low-stock alerts for the owner.",
+        },
       },
     },
   },
@@ -317,6 +321,10 @@ export const dictionaries = {
         staffAccountsEnabled: {
           label: "حسابات الفريق",
           hint: "دخول متعدد على العميل (مالك / كاشير / مطبخ / بار). لو مطفّى يبقى باسورد واحد.",
+        },
+        inventoryEnabled: {
+          label: "المخازن",
+          hint: "تتبع كمية كل صنف؛ خصم عند طلب المنيو والـ POS؛ تنبيه نقص للمالك.",
         },
       },
     },

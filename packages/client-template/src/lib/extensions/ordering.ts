@@ -31,6 +31,8 @@ export type OrderingFeatures = {
   posEnabled: boolean;
   /** Multi-user staff logins (users.json) — when off, shared dashboard password */
   staffAccountsEnabled: boolean;
+  /** Track stock qty per product; deduct on menu/POS orders */
+  inventoryEnabled: boolean;
   /** Soft settings (also overridable in ordering.json) */
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
@@ -52,6 +54,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   baristaScreen: false,
   posEnabled: false,
   staffAccountsEnabled: false,
+  inventoryEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
   enabled: false,
@@ -82,6 +85,7 @@ export function normalizeOrderingFeatures(
   merged.baristaScreen = Boolean(merged.baristaScreen);
   merged.posEnabled = Boolean(merged.posEnabled);
   merged.staffAccountsEnabled = Boolean(merged.staffAccountsEnabled);
+  merged.inventoryEnabled = Boolean(merged.inventoryEnabled);
   merged.guestNoteEnabled = merged.guestNoteEnabled !== false;
   const max = Number(merged.maxItemsPerOrder);
   merged.maxItemsPerOrder =
@@ -127,4 +131,11 @@ export function hasStaffAccounts(
   ext?: Partial<OrderingFeatures> | null
 ): boolean {
   return normalizeOrderingFeatures(ext).staffAccountsEnabled;
+}
+
+export function hasInventory(
+  ext?: Partial<OrderingFeatures> | null
+): boolean {
+  const f = normalizeOrderingFeatures(ext);
+  return f.orderFromMenu && f.inventoryEnabled;
 }

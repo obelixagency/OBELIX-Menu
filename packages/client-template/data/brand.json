@@ -25,6 +25,7 @@
       "baristaScreen": true,
       "posEnabled": true,
       "staffAccountsEnabled": true,
+      "inventoryEnabled": true,
       "guestNoteEnabled": true,
       "maxItemsPerOrder": 50,
       "enabled": true,

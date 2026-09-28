@@ -12,6 +12,7 @@ import {
   priceAfterDiscount as priceDisc,
   resolveDiscount as resolveDisc,
 } from "./types";
+import { deductStock, restoreStock } from "./inventory-data";
 
 export type Zone = {
   id: string;
@@ -499,6 +500,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
   if (!lines.length) throw new Error("السلة فارغة");
 
+  await deductStock(lines.map((l) => ({ itemId: l.itemId, qty: l.qty })));
+
   const subtotal = Math.round(
     lines.reduce((s, l) => s + l.lineTotal, 0) * 100
   ) / 100;
@@ -626,6 +629,8 @@ export async function createPosOrder(
   }
   if (!lines.length) throw new Error("Ticket is empty");
 
+  await deductStock(lines.map((l) => ({ itemId: l.itemId, qty: l.qty })));
+
   const subtotal =
     Math.round(lines.reduce((s, l) => s + l.lineTotal, 0) * 100) / 100;
 
@@ -702,6 +707,11 @@ export async function updateOrderStatus(
       : OWNER_TRANSITIONS[order.status];
   if (!allowed.includes(status)) {
     throw new Error(`لا يمكن التحويل من ${order.status} إلى ${status}`);
+  }
+  if (status === "cancelled" && order.status !== "cancelled") {
+    await restoreStock(
+      order.lines.map((l) => ({ itemId: l.itemId, qty: l.qty }))
+    );
   }
   store.orders[idx] = {
     ...order,
