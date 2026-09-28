@@ -84,6 +84,7 @@ export type OrderingSettings = {
   alerts?: {
     alertOnDelivery: boolean;
     alertOnDineIn: boolean;
+    alertOnPos: boolean;
     whatsappPhone: string;
     callMeBotApiKey: string;
     webhookUrl: string;
@@ -131,6 +132,7 @@ function emptyStore(): OrderingStore {
       alerts: {
         alertOnDelivery: true,
         alertOnDineIn: false,
+        alertOnPos: false,
         whatsappPhone: "",
         callMeBotApiKey: "",
         webhookUrl: "",
@@ -146,6 +148,7 @@ function normalizeAlerts(
   return {
     alertOnDelivery: raw?.alertOnDelivery !== false,
     alertOnDineIn: Boolean(raw?.alertOnDineIn),
+    alertOnPos: Boolean(raw?.alertOnPos),
     whatsappPhone: String(raw?.whatsappPhone || "").trim(),
     callMeBotApiKey: String(raw?.callMeBotApiKey || "").trim(),
     webhookUrl: String(raw?.webhookUrl || "").trim(),
@@ -739,6 +742,9 @@ export async function createPosOrder(
     store.orders = store.orders.slice(0, 500);
   }
   await saveStore(store);
+  void import("@/lib/order-alerts").then(({ notifyNewOrder }) =>
+    notifyNewOrder(order)
+  );
   return order;
 }
 

@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
+import { normalizePayments } from "@/lib/payments";
 
 export async function GET() {
   const brand = await readBrand();
@@ -33,6 +34,17 @@ export async function PATCH(req: NextRequest) {
             ? String(body.menuBackgroundUrl)
             : null
           : brand.menuBackgroundUrl,
+      extensions: {
+        ...brand.extensions,
+        ordering: brand.extensions.ordering,
+        payments:
+          body.payments !== undefined
+            ? normalizePayments({
+                ...brand.extensions.payments,
+                ...body.payments,
+              })
+            : normalizePayments(brand.extensions.payments),
+      },
     };
     const file = path.join(process.cwd(), "data", "brand.json");
     await fs.writeFile(file, JSON.stringify(next, null, 2), "utf8");

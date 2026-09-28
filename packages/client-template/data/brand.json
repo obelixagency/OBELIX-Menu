@@ -32,6 +32,11 @@
       "enabled": true,
       "provider": "cart",
       "note": "Live Hostinger POS pilot"
+    },
+    "payments": {
+      "enabled": false,
+      "provider": "none",
+      "note": "Online payment ready to wire per client gateway — not active yet."
     }
   }
 }

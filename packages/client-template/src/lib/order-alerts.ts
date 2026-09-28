@@ -10,6 +10,8 @@ import {
 export type OrderAlertSettings = {
   alertOnDelivery: boolean;
   alertOnDineIn: boolean;
+  /** Notify on POS ticket close */
+  alertOnPos: boolean;
   whatsappPhone: string;
   callMeBotApiKey: string;
   webhookUrl: string;
@@ -18,6 +20,7 @@ export type OrderAlertSettings = {
 export const DEFAULT_ALERT_SETTINGS: OrderAlertSettings = {
   alertOnDelivery: true,
   alertOnDineIn: false,
+  alertOnPos: false,
   whatsappPhone: "",
   callMeBotApiKey: "",
   webhookUrl: "",
@@ -98,7 +101,8 @@ export async function notifyNewOrder(order: Order): Promise<void> {
     const alerts = settings.alerts || DEFAULT_ALERT_SETTINGS;
     const want =
       (order.channel === "delivery" && alerts.alertOnDelivery) ||
-      (order.channel === "dine_in" && alerts.alertOnDineIn);
+      (order.channel === "dine_in" && alerts.alertOnDineIn) ||
+      (order.channel === "pos" && Boolean(alerts.alertOnPos));
     if (!want) return;
 
     const brand = await readBrand();

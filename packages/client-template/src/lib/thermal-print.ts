@@ -138,6 +138,78 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
   w.document.close();
 }
 
+export type KitchenTicketInput = {
+  storeName: string;
+  code: string;
+  channelLabel: string;
+  whereLabel: string;
+  lines: { name: string; qty: number; station?: string }[];
+  note?: string;
+  locale?: "ar" | "en";
+  dir?: "rtl" | "ltr";
+  when?: Date;
+};
+
+/** Compact kitchen / barista ticket (80mm). */
+export function printKitchenTicket(t: KitchenTicketInput): void {
+  if (typeof window === "undefined") return;
+  const dir = t.dir || (t.locale === "ar" ? "rtl" : "ltr");
+  const locale = t.locale || "ar";
+  const when = t.when || new Date();
+  const title = locale === "ar" ? "تذكرة تحضير" : "Prep ticket";
+  const rows = t.lines
+    .map(
+      (l) =>
+        `<tr><td class="qty">${l.qty}×</td><td>${esc(l.name)}${
+          l.station && l.station !== "unassigned"
+            ? ` <span class="st">[${esc(l.station)}]</span>`
+            : ""
+        }</td></tr>`
+    )
+    .join("");
+
+  const html = `<!doctype html>
+<html dir="${dir}" lang="${locale}">
+<head>
+<meta charset="utf-8"/>
+<title>${esc(t.code)} kitchen</title>
+<style>
+  @page { size: 80mm auto; margin: 2mm; }
+  body {
+    margin: 0 auto; padding: 2mm; width: 72mm; color: #000;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 13px; line-height: 1.35;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; text-align: center; font-weight: 900; }
+  .meta { text-align: center; font-size: 11px; margin: 0 0 2px; }
+  .big { font-size: 18px; font-weight: 900; text-align: center; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  td { padding: 4px 0; border-bottom: 1px dashed #000; vertical-align: top; }
+  td.qty { width: 18%; font-weight: 900; font-size: 15px; }
+  .st { font-size: 10px; opacity: 0.7; }
+  .note { margin-top: 8px; border: 1px solid #000; padding: 4px; font-size: 12px; }
+  @media print { html, body { width: 72mm; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <h1>${esc(title)}</h1>
+  <p class="big">#${esc(t.code)}</p>
+  <p class="meta">${esc(t.storeName)}</p>
+  <p class="meta">${esc(t.channelLabel)} · ${esc(t.whereLabel)}</p>
+  <p class="meta">${esc(when.toLocaleString(locale === "ar" ? "ar-EG" : "en-GB"))}</p>
+  <table>${rows}</table>
+  ${t.note ? `<div class="note">${esc(t.note)}</div>` : ""}
+  <script>window.onload=function(){window.focus();window.print();}</script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=320,height=640");
+  if (!w) return;
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 /** Download plain ESC/POS-ish text file (for bridges / testing). */
 export function downloadEscPosFile(r: ThermalReceiptInput, filename?: string): void {
   if (typeof window === "undefined") return;

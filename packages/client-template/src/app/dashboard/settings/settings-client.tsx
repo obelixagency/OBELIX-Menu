@@ -26,9 +26,13 @@ export default function SettingsClient() {
   const [error, setError] = useState<string | null>(null);
   const [alertOnDelivery, setAlertOnDelivery] = useState(true);
   const [alertOnDineIn, setAlertOnDineIn] = useState(false);
+  const [alertOnPos, setAlertOnPos] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [callMeBotApiKey, setCallMeBotApiKey] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [payEnabled, setPayEnabled] = useState(false);
+  const [payProvider, setPayProvider] = useState("none");
+  const [paySaving, setPaySaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -42,9 +46,15 @@ export default function SettingsClient() {
       if (a) {
         setAlertOnDelivery(a.alertOnDelivery !== false);
         setAlertOnDineIn(Boolean(a.alertOnDineIn));
+        setAlertOnPos(Boolean(a.alertOnPos));
         setWhatsappPhone(a.whatsappPhone || "");
         setCallMeBotApiKey(a.callMeBotApiKey || "");
         setWebhookUrl(a.webhookUrl || "");
+      }
+      const pay = brandData.brand?.extensions?.payments;
+      if (pay) {
+        setPayEnabled(Boolean(pay.enabled));
+        setPayProvider(pay.provider || "none");
       }
     });
   }, []);
@@ -90,6 +100,7 @@ export default function SettingsClient() {
           alerts: {
             alertOnDelivery,
             alertOnDineIn,
+            alertOnPos,
             whatsappPhone,
             callMeBotApiKey,
             webhookUrl,
@@ -107,6 +118,36 @@ export default function SettingsClient() {
       setError(err instanceof Error ? err.message : "خطأ");
     } finally {
       setAlertSaving(false);
+    }
+  }
+
+  async function savePayments(e: FormEvent) {
+    e.preventDefault();
+    setPaySaving(true);
+    setError(null);
+    setMsg(null);
+    try {
+      const res = await fetch(withBasePath("/api/brand"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payments: {
+            enabled: payEnabled,
+            provider: payProvider,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 401) {
+        router.push("/dashboard/login");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "فشل");
+      setMsg("تم حفظ إعدادات الدفع (بدون تفعيل بوابة بعد)");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setPaySaving(false);
     }
   }
 
@@ -171,6 +212,14 @@ export default function SettingsClient() {
               />
               تنبيه عند طلب طاولة من المنيو
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={alertOnPos}
+                onChange={(e) => setAlertOnPos(e.target.checked)}
+              />
+              تنبيه عند إقفال تذكرة من الـ POS
+            </label>
             <div>
               <Label htmlFor="wa">رقم واتساب المطعم</Label>
               <Input
@@ -212,6 +261,50 @@ export default function SettingsClient() {
             </div>
             <Button type="submit" disabled={alertSaving}>
               {alertSaving ? "…" : "حفظ التنبيهات"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">الدفع الأونلاين (جاهز للربط)</CardTitle>
+          <CardDescription>
+            من غير ربط ببوابة دلوقتي. اختار المزود المفضّل للعميل لاحقًا
+            (Paymob / Fawry / Stripe / مخصص) وهنوصل المفاتيح لما يشترك.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={savePayments} className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={payEnabled}
+                onChange={(e) => setPayEnabled(e.target.checked)}
+              />
+              تفعيل خانة الدفع الأونلاين لهذا العميل (بدون تحصيل فعلي بعد)
+            </label>
+            <div>
+              <Label htmlFor="prov">المزود المتوقع</Label>
+              <select
+                id="prov"
+                className="flex h-11 w-full rounded-md border border-black/15 bg-white px-3 text-sm"
+                value={payProvider}
+                onChange={(e) => setPayProvider(e.target.value)}
+              >
+                <option value="none">لم يُحدد</option>
+                <option value="paymob">Paymob</option>
+                <option value="fawry">Fawry</option>
+                <option value="stripe">Stripe</option>
+                <option value="custom">مخصص / أخرى</option>
+              </select>
+            </div>
+            <p className="text-[11px] text-black/45">
+              الكود جاهز بواجهة موحّدة — التحصيل الفعلي يتفعل بعد المفاتيح حسب
+              اختيار العميل.
+            </p>
+            <Button type="submit" disabled={paySaving}>
+              {paySaving ? "…" : "حفظ الدفع"}
             </Button>
           </form>
         </CardContent>

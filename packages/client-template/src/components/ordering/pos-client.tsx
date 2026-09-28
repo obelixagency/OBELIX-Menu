@@ -12,6 +12,7 @@ import type { LanguageMode } from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
 import {
   downloadEscPosFile,
+  printKitchenTicket,
   printThermalReceipt,
 } from "@/lib/thermal-print";
 import { withBasePath } from "@/lib/base-path";
@@ -91,6 +92,7 @@ const COPY = {
     note: "Note (optional)",
     powered: "Powered by OBELIX",
     print: "Print 80mm",
+    kitchen: "Kitchen",
     escPos: "ESC/POS",
     openShift: "Open shift",
     closeShift: "Close shift",
@@ -130,6 +132,7 @@ const COPY = {
     note: "ملاحظة (اختياري)",
     powered: "مدعوم من OBELIX",
     print: "طباعة ٨٠مم",
+    kitchen: "مطبخ",
     escPos: "ESC/POS",
     openShift: "فتح وردية",
     closeShift: "تقفيل وردية",
@@ -170,6 +173,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     method: PaymentMethod;
     lines: TicketLine[];
     total: number;
+    whereLabel: string;
+    note?: string;
   } | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
   const [shiftOpen, setShiftOpen] = useState<boolean | null>(null);
@@ -258,6 +263,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               method: row.paymentMethod,
               lines: row.receiptLines,
               total: row.total,
+              whereLabel: row.tableId || "walk-in",
+              note: row.guestNote,
             });
           }
         } catch (err) {
@@ -492,10 +499,14 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     setClosing(true);
     setPayError(null);
     const snapshot = { lines: [...lines], total };
+    const whereLabel =
+      tables.find((t) => t.id === tableId)?.label ||
+      (locale === "ar" ? "حضور" : "walk-in");
+    const noteSnap = note.trim() || undefined;
     const body = {
       paymentMethod: method,
       tableId: tableId || null,
-      guestNote: note || undefined,
+      guestNote: noteSnap,
       branchId: branchId || undefined,
       lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
     };
@@ -525,6 +536,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         method,
         lines: snapshot.lines,
         total: snapshot.total,
+        whereLabel,
+        note: noteSnap,
       });
       setLines([]);
       setNote("");
@@ -552,6 +565,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           method,
           lines: snapshot.lines,
           total: snapshot.total,
+          whereLabel,
+          note: noteSnap,
         });
       }
       setLines([]);
@@ -613,6 +628,23 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     const payload = receiptPayload();
     if (!payload) return;
     printThermalReceipt(payload);
+  }
+
+  function printLastKitchen() {
+    if (!lastReceipt || !brand) return;
+    printKitchenTicket({
+      storeName: brand.displayName,
+      code: lastReceipt.code,
+      channelLabel: "POS",
+      whereLabel: lastReceipt.whereLabel,
+      lines: lastReceipt.lines.map((l) => ({
+        name: pickLocalized(locale, l.name, l.nameEn),
+        qty: l.qty,
+      })),
+      note: lastReceipt.note,
+      locale,
+      dir,
+    });
   }
 
   function downloadLastEscPos() {
@@ -1022,6 +1054,13 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                       className="min-h-8 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
                     >
                       {t.print}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={printLastKitchen}
+                      className="min-h-8 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
+                    >
+                      {t.kitchen}
                     </button>
                     <button
                       type="button"

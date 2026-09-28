@@ -55,6 +55,7 @@
     "alerts": {
       "alertOnDelivery": true,
       "alertOnDineIn": false,
+      "alertOnPos": false,
       "whatsappPhone": "",
       "callMeBotApiKey": "",
       "webhookUrl": ""

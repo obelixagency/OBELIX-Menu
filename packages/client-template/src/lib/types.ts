@@ -1,4 +1,5 @@
 import type { OrderingExtension } from "./extensions/ordering";
+import type { PaymentsConfig } from "./payments";
 export type {
   OrderingExtension,
   OrderingFeatures,
@@ -40,6 +41,8 @@ export type BrandConfig = {
   menuBackgroundUrl?: string | null;
   extensions: {
     ordering: OrderingExtension;
+    /** Gateway-agnostic online payments slot — inactive until provider credentials */
+    payments?: PaymentsConfig;
   };
 };
 

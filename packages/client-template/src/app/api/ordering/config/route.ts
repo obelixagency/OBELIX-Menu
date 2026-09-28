@@ -16,6 +16,7 @@ import {
   seedDefaultZonesIfEmpty,
   updateOrderingSettings,
 } from "@/lib/ordering-data";
+import { paymentsPublicSummary } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ function publicAlerts(
   return {
     alertOnDelivery: alerts.alertOnDelivery,
     alertOnDineIn: alerts.alertOnDineIn,
+    alertOnPos: Boolean(alerts.alertOnPos),
     whatsappPhone: alerts.whatsappPhone,
     callMeBotApiKey: "",
     webhookUrl: "",
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
           ...settings,
           alerts: publicAlerts(settings.alerts, !forGuest),
         },
+        payments: paymentsPublicSummary(brand.extensions?.payments),
         tables: [],
         zones: [],
         stationRouting: {},
@@ -80,6 +83,7 @@ export async function GET(req: NextRequest) {
         ...settings,
         alerts: publicAlerts(settings.alerts, !forGuest),
       },
+      payments: paymentsPublicSummary(brand.extensions?.payments),
       tables: forGuest ? tables.filter((t) => t.active) : tables,
       zones: forGuest ? zones.filter((z) => z.active) : zones,
       stationRouting: forGuest ? undefined : stationRouting,

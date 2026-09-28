@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { withBasePath } from "@/lib/base-path";
 import { whatsappClickUrl } from "@/lib/order-alerts-shared";
+import { printKitchenTicket } from "@/lib/thermal-print";
 import type { OrderStatus, Station } from "@/lib/extensions/ordering";
 
 type Order = {
@@ -207,6 +208,42 @@ export function StaffOrdersBoard({
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  function printKitchen(o: Order) {
+    const lines = (
+      stationFilter
+        ? o.lines.filter((l) => l.station === stationFilter)
+        : o.lines
+    ).map((l) => ({
+      name: l.nameAr || l.name,
+      qty: l.qty,
+      station: l.station,
+    }));
+    if (!lines.length) return;
+    const channelLabel =
+      o.channel === "delivery"
+        ? "توصيل"
+        : o.channel === "pos"
+          ? "POS"
+          : "طاولة";
+    const whereLabel =
+      o.channel === "delivery"
+        ? o.delivery?.addressLine || o.delivery?.phone || "—"
+        : o.tableLabel
+          ? `${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+          : "walk-in";
+    printKitchenTicket({
+      storeName,
+      code: o.code,
+      channelLabel,
+      whereLabel,
+      lines,
+      note: o.guestNote,
+      locale: "ar",
+      dir: "rtl",
+      when: new Date(o.createdAt),
+    });
+  }
+
   function actionsFor(o: Order): { label: string; status: OrderStatus }[] {
     if (role === "station") {
       if (o.status === "new") return [{ label: "تحضير", status: "preparing" }];
@@ -396,6 +433,13 @@ export function StaffOrdersBoard({
                     {a.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => printKitchen(o)}
+                  className="min-h-11 rounded-md border border-white/25 px-3 text-sm font-semibold text-white/90"
+                >
+                  طباعة مطبخ
+                </button>
                 {staffWaPhone && (
                   <button
                     type="button"

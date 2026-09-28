@@ -5,6 +5,7 @@ import {
   DEFAULT_ORDERING_FEATURES,
   normalizeOrderingFeatures,
 } from "./extensions/ordering";
+import { normalizePayments } from "./payments";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const BRAND_FILE = path.join(DATA_DIR, "brand.json");
@@ -27,6 +28,7 @@ const DEFAULT_BRAND: BrandConfig = {
   menuBackgroundUrl: null,
   extensions: {
     ordering: DEFAULT_ORDERING_FEATURES,
+    payments: normalizePayments(null),
   },
 };
 
@@ -41,6 +43,7 @@ export async function readBrand(): Promise<BrandConfig> {
       colors: { ...DEFAULT_BRAND.colors, ...parsed.colors },
       extensions: {
         ordering: normalizeOrderingFeatures(parsed.extensions?.ordering),
+        payments: normalizePayments(parsed.extensions?.payments),
       },
     };
   } catch {

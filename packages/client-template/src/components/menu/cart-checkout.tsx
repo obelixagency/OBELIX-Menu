@@ -56,6 +56,7 @@ export function CartCheckout({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"cart" | "checkout">("cart");
+  const [payHint, setPayHint] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cart.open) return;
@@ -64,9 +65,19 @@ export function CartCheckout({
       .then((d) => {
         setTables(d.tables || []);
         setZones(d.zones || []);
+        const pay = d.payments;
+        if (pay?.enabled && pay.provider && pay.provider !== "none") {
+          setPayHint(
+            ar
+              ? `الدفع الأونلاين (${pay.provider}) جاهز للربط — حالياً الدفع عند الاستلام / الكاشير.`
+              : `Online payment (${pay.provider}) slot reserved — pay on delivery / at cashier for now.`
+          );
+        } else {
+          setPayHint(null);
+        }
       })
       .catch(() => {});
-  }, [cart.open]);
+  }, [cart.open, ar]);
 
   useEffect(() => {
     if (tableOrdering && !delivery) setChannel("dine_in");
@@ -316,13 +327,15 @@ export function CartCheckout({
               )}
 
               <p className="rounded-md bg-[var(--brand-surface)] p-3 text-xs text-black/60">
-                {channel === "delivery"
-                  ? ar
-                    ? "الدفع عند الاستلام — مفيش دفع أونلاين."
-                    : "Pay on delivery — no online payment."
-                  : ar
-                    ? "الحساب عند الكاشير / على الطاولة — مفيش دفع أونلاين."
-                    : "Pay at cashier / table — no online payment."}
+                {payHint
+                  ? payHint
+                  : channel === "delivery"
+                    ? ar
+                      ? "الدفع عند الاستلام — مفيش دفع أونلاين دلوقتي."
+                      : "Pay on delivery — online payment not active yet."
+                    : ar
+                      ? "الحساب عند الكاشير / على الطاولة — مفيش دفع أونلاين دلوقتي."
+                      : "Pay at cashier / table — online payment not active yet."}
               </p>
 
               {/* honeypot */}
