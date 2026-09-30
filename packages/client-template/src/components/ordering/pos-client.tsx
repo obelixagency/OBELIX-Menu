@@ -811,7 +811,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex min-h-[100dvh] flex-col"
       dir={dir}
       lang={locale}
       style={{ background: OX.bg, color: "#fff" }}
@@ -1085,9 +1085,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-[1480px] flex-1 flex-col lg:flex-row lg:min-h-0">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-1 flex-col pb-[5.5rem] lg:flex-row lg:min-h-0 lg:overflow-hidden">
         {/* Catalog */}
-        <section className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
+        <section className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4">
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
             <CatChip
               active={categoryId === "all"}
@@ -1177,7 +1177,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
         {/* Ticket */}
         <aside
-          className="flex w-full flex-col border-t lg:w-[380px] lg:border-s lg:border-t-0"
+          className="flex w-full max-h-[70vh] flex-col border-t lg:max-h-none lg:h-full lg:w-[380px] lg:border-s lg:border-t-0 lg:overflow-hidden"
           style={{ borderColor: OX.line, background: OX.panel }}
         >
           <div
@@ -1378,7 +1378,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
       {/* Footer — Back · OBELIX Menu · Hold · Powered by OBELIX */}
       <footer
-        className="sticky bottom-0 border-t px-3 py-2 sm:px-5"
+        className="fixed inset-x-0 bottom-0 z-40 border-t px-3 py-2 sm:px-5"
         style={{ borderColor: OX.line, background: OX.panel }}
       >
         <div className="flex items-center justify-between gap-3">
