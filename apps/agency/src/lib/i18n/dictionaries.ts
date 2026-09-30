@@ -24,7 +24,10 @@ export const dictionaries = {
     },
     login: {
       subtitle: "Agency dashboard sign-in",
+      username: "Username",
       password: "Password",
+      show: "Show",
+      hide: "Hide",
       submit: "Sign in",
       submitting: "Signing in…",
       failed: "Sign-in failed",
@@ -190,7 +193,10 @@ export const dictionaries = {
     },
     login: {
       subtitle: "دخول داشبورد الوكالة",
+      username: "اسم المستخدم",
       password: "كلمة المرور",
+      show: "إظهار",
+      hide: "إخفاء",
       submit: "دخول",
       submitting: "جاري الدخول…",
       failed: "فشل الدخول",

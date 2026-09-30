@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE, loginAndCreateCookie } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const password = String(body.password || "");
@@ -9,7 +11,12 @@ export async function POST(req: NextRequest) {
 
   const result = await loginAndCreateCookie({ password, username });
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 401 });
+    const res = NextResponse.json({ error: result.error }, { status: 401 });
+    res.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, private"
+    );
+    return res;
   }
 
   const res = NextResponse.json({
@@ -17,6 +24,10 @@ export async function POST(req: NextRequest) {
     role: result.role,
     redirect: result.redirect,
   });
+  res.headers.set(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, private"
+  );
   res.cookies.set(COOKIE, result.token, {
     httpOnly: true,
     sameSite: "lax",

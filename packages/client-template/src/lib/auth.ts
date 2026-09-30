@@ -115,9 +115,9 @@ export type LoginResult =
   | { ok: false; error: string };
 
 /**
- * Login:
- * - staffAccountsEnabled ON → username + password against users.json
- * - OFF → shared dashboard password (owner session)
+ * Login — always username + password.
+ * - staffAccountsEnabled ON → users.json
+ * - OFF → username must be `owner` + shared dashboard password
  */
 export async function attemptLogin(input: {
   password: string;
@@ -126,12 +126,13 @@ export async function attemptLogin(input: {
   const brand = await readBrand();
   const features = normalizeOrderingFeatures(brand.extensions?.ordering);
   const password = String(input.password || "");
+  const username = String(input.username || "").trim();
+
+  if (!username || !password) {
+    return { ok: false, error: "Username and password are required" };
+  }
 
   if (features.staffAccountsEnabled) {
-    const username = String(input.username || "").trim();
-    if (!username) {
-      return { ok: false, error: "Username required" };
-    }
     await ensureSeedOwner(getDashboardPassword(brand));
     const user = await findUserByUsername(username);
     if (!user || !user.active || !verifyPasswordHash(password, user.passwordHash)) {
@@ -151,9 +152,12 @@ export async function attemptLogin(input: {
     };
   }
 
+  if (username.toLowerCase() !== "owner") {
+    return { ok: false, error: "Invalid username or password" };
+  }
   const ok = await verifyPassword(password);
   if (!ok) {
-    return { ok: false, error: "Incorrect password" };
+    return { ok: false, error: "Invalid username or password" };
   }
   return { ok: true, role: "owner", redirect: "/dashboard" };
 }
@@ -171,11 +175,11 @@ export async function loginAndCreateCookie(input: {
   if (!result.ok) return result;
 
   let userId: string | null = null;
-  let username: string | null = null;
-  if (features.staffAccountsEnabled && input.username) {
-    const user = await findUserByUsername(input.username);
+  let username: string | null = String(input.username || "").trim() || null;
+  if (features.staffAccountsEnabled && username) {
+    const user = await findUserByUsername(username);
     userId = user?.id ?? null;
-    username = user?.username ?? null;
+    username = user?.username ?? username;
   }
 
   const token = await createSessionCookie({

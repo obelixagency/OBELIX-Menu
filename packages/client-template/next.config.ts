@@ -10,6 +10,30 @@ const nextConfig: NextConfig = {
     // Expose to client so fetch()/SW registration honor basePath (Next does not auto-prefix fetch).
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
+  async headers() {
+    return [
+      {
+        source: "/dashboard/login",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          { key: "CDN-Cache-Control", value: "no-store" },
+          { key: "Pragma", value: "no-cache" },
+        ],
+      },
+      {
+        source: "/api/auth/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
