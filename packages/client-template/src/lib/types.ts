@@ -1,4 +1,12 @@
 import type { OrderingExtension } from "./extensions/ordering";
+import type { PaymentsConfig } from "./payments";
+export type {
+  OrderingExtension,
+  OrderingFeatures,
+  OrderChannel,
+  OrderStatus,
+  Station,
+} from "./extensions/ordering";
 
 export type LanguageMode = "ar" | "en" | "both";
 
@@ -33,6 +41,8 @@ export type BrandConfig = {
   menuBackgroundUrl?: string | null;
   extensions: {
     ordering: OrderingExtension;
+    /** Gateway-agnostic online payments slot — inactive until provider credentials */
+    payments?: PaymentsConfig;
   };
 };
 

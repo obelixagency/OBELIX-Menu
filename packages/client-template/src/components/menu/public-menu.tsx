@@ -14,12 +14,14 @@ import {
   type Product,
   type Review,
 } from "@/lib/types";
-import { isOrderingEnabled } from "@/lib/extensions/ordering";
+import { isOrderingEnabled, normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { dirFor, pickLocalized, type Locale } from "@/lib/i18n";
 import { childrenOf } from "@/lib/menu-data-browser";
 import { RateFormModal } from "@/components/menu/rate-form-modal";
 import { PromoBannerCarousel } from "@/components/menu/promo-banners";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
+import { CartProvider, useCart } from "@/components/menu/cart-context";
+import { CartCheckout } from "@/components/menu/cart-checkout";
 
 type Props = {
   brand: BrandConfig;
@@ -28,22 +30,56 @@ type Props = {
   contacts: Contact[];
   reviews: Review[];
   banners: Banner[];
+  /** productId → remaining qty; empty when inventory off */
+  stockMap?: Record<string, number>;
+  inventoryEnabled?: boolean;
+  branchId?: string;
+  branchLabel?: string;
 };
 
-export function PublicMenu({
+export function PublicMenu(props: Props) {
+  const features = normalizeOrderingFeatures(props.brand.extensions?.ordering);
+  return (
+    <CartProvider maxItems={features.maxItemsPerOrder || 50}>
+      <PublicMenuInner {...props} features={features} />
+    </CartProvider>
+  );
+}
+
+function PublicMenuInner({
   brand,
   categories,
   products,
   contacts,
   reviews,
   banners,
-}: Props) {
+  stockMap = {},
+  inventoryEnabled = false,
+  branchId,
+  branchLabel,
+  features,
+}: Props & {
+  features: ReturnType<typeof normalizeOrderingFeatures>;
+}) {
+  const orderingOn = isOrderingEnabled(features);
+  const inventoryOn = inventoryEnabled;
   const mode = brand.languages || "both";
   const currency = brand.currency || "EGP";
   const [locale, setLocale] = useState<Locale>(mode === "en" ? "en" : "ar");
   const [query, setQuery] = useState("");
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [rateOpen, setRateOpen] = useState(false);
+  const cart = useCart();
+
+  function stockFor(id: string): number | null {
+    if (!inventoryOn) return null;
+    return stockMap[id] ?? 0;
+  }
+
+  function isOut(id: string): boolean {
+    const s = stockFor(id);
+    return s !== null && s <= 0;
+  }
 
   const currentParent = pathIds.length ? pathIds[pathIds.length - 1] : null;
   const childCats = useMemo(
@@ -61,6 +97,24 @@ export function PublicMenu({
     () => new Map(categories.map((c) => [c.id, c])),
     [categories]
   );
+
+  function addProduct(p: Product) {
+    if (isOut(p.id)) return;
+    const discount = resolveDiscount(p, catMap.get(p.categoryId));
+    const pricing = priceAfterDiscount(p.price, discount);
+    const have = stockFor(p.id);
+    if (have !== null) {
+      const inCart = cart.lines.find((l) => l.itemId === p.id)?.qty || 0;
+      if (inCart + 1 > have) return;
+    }
+    cart.addItem({
+      itemId: p.id,
+      name: p.name,
+      nameEn: p.nameEn,
+      unitPrice: pricing.final,
+      image: p.image,
+    });
+  }
 
   const productsHere = useMemo(() => {
     if (!currentParent) return products.filter((p) => p.available);
@@ -181,10 +235,17 @@ export function PublicMenu({
           <h1 className="max-w-full break-words text-2xl font-extrabold tracking-tight sm:text-4xl">
             {brand.displayName}
           </h1>
+          {branchLabel && (
+            <p className="text-sm font-medium text-white/90">{branchLabel}</p>
+          )}
           <p className="max-w-md text-sm text-white/85">
-            {locale === "en"
-              ? "Digital menu — browse items & prices. Ordering soon."
-              : "منيو رقمي — تصفّح الأصناف والأسعار. الطلب قريباً."}
+            {orderingOn
+              ? locale === "en"
+                ? "Browse the menu and order from your phone."
+                : "تصفّح المنيو واطلب من موبايلك."
+              : locale === "en"
+                ? "Digital menu — browse items & prices."
+                : "منيو رقمي — تصفّح الأصناف والأسعار."}
           </p>
         </div>
       </header>
@@ -256,6 +317,13 @@ export function PublicMenu({
                   currency={currency}
                   index={i}
                   featured
+                  orderingOn={orderingOn}
+                  outOfStock={isOut(p.id)}
+                  onAdd={
+                    orderingOn && !isOut(p.id)
+                      ? () => addProduct(p)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -283,6 +351,13 @@ export function PublicMenu({
                   locale={locale}
                   currency={currency}
                   index={i}
+                  orderingOn={orderingOn}
+                  outOfStock={isOut(p.id)}
+                  onAdd={
+                    orderingOn && !isOut(p.id)
+                      ? () => addProduct(p)
+                      : undefined
+                  }
                 />
               ))}
           </div>
@@ -359,16 +434,47 @@ export function PublicMenu({
           </section>
         )}
 
-        {!isOrderingEnabled(brand.extensions?.ordering) && (
+        {!orderingOn && (
           <div className="mt-8 rounded-xl border border-dashed border-black/15 bg-white/70 p-4 text-center text-xs text-black/45">
             {locale === "en"
-              ? "Ordering is not enabled in this version."
-              : "الطلب من المنيو غير مفعّل في الإصدار الحالي."}
+              ? "Ordering is not enabled for this menu."
+              : "الطلب من المنيو غير مفعّل لهذا العميل."}
           </div>
         )}
 
         <PublicMenuFooter displayName={brand.displayName} locale={locale} />
       </div>
+
+      {orderingOn && (
+        <>
+          {cart.count > 0 && (
+            <button
+              type="button"
+              onClick={() => cart.setOpen(true)}
+              className="fixed bottom-4 start-4 end-4 z-40 mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl px-5 font-bold text-white shadow-lg touch-manipulation"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              <span>
+                {locale === "en"
+                  ? `Cart · ${cart.count}`
+                  : `السلة · ${cart.count}`}
+              </span>
+              <span>{formatPrice(cart.subtotal, currency, locale)}</span>
+            </button>
+          )}
+          <CartCheckout
+            locale={locale}
+            currency={currency}
+            tableOrdering={features.tableOrderingEnabled}
+            delivery={features.deliveryEnabled}
+            zonesEnabled={
+              features.tableOrderingEnabled && features.zonesIndoorOutdoor
+            }
+            guestNoteEnabled={features.guestNoteEnabled}
+            branchId={branchId}
+          />
+        </>
+      )}
 
       <RateFormModal
         open={rateOpen}
@@ -386,6 +492,9 @@ function ProductCard({
   currency,
   index,
   featured,
+  orderingOn,
+  outOfStock,
+  onAdd,
 }: {
   product: Product;
   category?: Category;
@@ -393,6 +502,9 @@ function ProductCard({
   currency: string;
   index: number;
   featured?: boolean;
+  orderingOn?: boolean;
+  outOfStock?: boolean;
+  onAdd?: () => void;
 }) {
   const discount = resolveDiscount(product, category);
   const pricing = priceAfterDiscount(product.price, discount);
@@ -400,55 +512,88 @@ function ProductCard({
   const desc = pickLocalized(locale, product.description, product.descriptionEn);
 
   return (
-    <Link
-      href={`/item/${product.id}`}
-      className="flex min-w-0 gap-3 overflow-hidden rounded-xl border border-black/8 bg-white/95 p-3 shadow-sm transition active:scale-[0.99]"
+    <div
+      className={`flex min-w-0 gap-3 overflow-hidden rounded-xl border border-black/8 bg-white/95 p-3 shadow-sm transition ${
+        outOfStock ? "opacity-60" : ""
+      }`}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      <div
-        className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg sm:h-20 sm:w-20"
-        style={{
-          background: featured
-            ? "linear-gradient(145deg, var(--brand-accent), var(--brand-primary))"
-            : "linear-gradient(145deg, var(--brand-surface), #fff)",
-        }}
+      <Link
+        href={`/item/${product.id}`}
+        className="flex min-w-0 flex-1 gap-3 active:scale-[0.99]"
       >
-        {product.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-xl font-bold text-[var(--brand-primary)]/40">
-            {title.slice(0, 1)}
-          </span>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="break-words font-semibold leading-snug">{title}</h3>
-          {featured && (
-            <span
-              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
-              style={{ background: "var(--brand-accent)", color: "#1a1410" }}
-            >
-              {locale === "en" ? "Featured" : "مميز"}
+        <div
+          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg sm:h-20 sm:w-20"
+          style={{
+            background: featured
+              ? "linear-gradient(145deg, var(--brand-accent), var(--brand-primary))"
+              : "linear-gradient(145deg, var(--brand-surface), #fff)",
+          }}
+        >
+          {product.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={product.image} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-xl font-bold text-[var(--brand-primary)]/40">
+              {title.slice(0, 1)}
             </span>
           )}
         </div>
-        {desc && (
-          <p className="mt-0.5 line-clamp-2 text-xs text-black/50">{desc}</p>
-        )}
-        <div className="mt-2 flex flex-wrap items-baseline gap-2">
-          <p className="text-sm font-bold text-[var(--brand-primary)]">
-            {formatPrice(pricing.final, currency, locale)}
-          </p>
-          {pricing.hasDiscount && (
-            <p className="text-xs text-black/40 line-through">
-              {formatPrice(pricing.original, currency, locale)}
-            </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="break-words font-semibold leading-snug">{title}</h3>
+            {featured && !outOfStock && (
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
+                style={{ background: "var(--brand-accent)", color: "#1a1410" }}
+              >
+                {locale === "en" ? "Featured" : "مميز"}
+              </span>
+            )}
+            {outOfStock && (
+              <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-bold text-black/55">
+                {locale === "en" ? "Sold out" : "نفد"}
+              </span>
+            )}
+          </div>
+          {desc && (
+            <p className="mt-0.5 line-clamp-2 text-xs text-black/50">{desc}</p>
           )}
+          <div className="mt-2 flex flex-wrap items-baseline gap-2">
+            <p className="text-sm font-bold text-[var(--brand-primary)]">
+              {formatPrice(pricing.final, currency, locale)}
+            </p>
+            {pricing.hasDiscount && (
+              <p className="text-xs text-black/40 line-through">
+                {formatPrice(pricing.original, currency, locale)}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+      {orderingOn && onAdd && !outOfStock && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            onAdd();
+          }}
+          className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-lg font-bold text-white touch-manipulation"
+          style={{ background: "var(--brand-primary)" }}
+          aria-label={locale === "en" ? "Add to cart" : "أضف للسلة"}
+        >
+          +
+        </button>
+      )}
+      {orderingOn && outOfStock && (
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full bg-black/10 text-[10px] font-bold text-black/40"
+          aria-hidden
+        >
+          —
+        </span>
+      )}
+    </div>
   );
 }
 

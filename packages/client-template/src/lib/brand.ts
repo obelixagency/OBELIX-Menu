@@ -1,7 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { BrandConfig, LanguageMode } from "./types";
-import { ORDERING_STUB } from "./extensions/ordering";
+import {
+  DEFAULT_ORDERING_FEATURES,
+  normalizeOrderingFeatures,
+} from "./extensions/ordering";
+import { normalizePayments } from "./payments";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const BRAND_FILE = path.join(DATA_DIR, "brand.json");
@@ -23,7 +27,8 @@ const DEFAULT_BRAND: BrandConfig = {
   notificationEmail: null,
   menuBackgroundUrl: null,
   extensions: {
-    ordering: ORDERING_STUB,
+    ordering: DEFAULT_ORDERING_FEATURES,
+    payments: normalizePayments(null),
   },
 };
 
@@ -37,10 +42,8 @@ export async function readBrand(): Promise<BrandConfig> {
       languages: normalizeLanguages(parsed.languages),
       colors: { ...DEFAULT_BRAND.colors, ...parsed.colors },
       extensions: {
-        ordering: {
-          ...ORDERING_STUB,
-          ...parsed.extensions?.ordering,
-        },
+        ordering: normalizeOrderingFeatures(parsed.extensions?.ordering),
+        payments: normalizePayments(parsed.extensions?.payments),
       },
     };
   } catch {

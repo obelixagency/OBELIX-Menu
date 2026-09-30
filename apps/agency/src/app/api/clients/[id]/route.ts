@@ -33,6 +33,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         surface: body.surfaceColor ?? client.colors.surface,
       },
       font: body.font ?? client.font,
+      ...(body.ordering ? { ordering: body.ordering } : {}),
     });
     return NextResponse.json({ client: updated });
   } catch (err) {

@@ -1,0 +1,476 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { formatPrice } from "@/lib/utils";
+import { withBasePath } from "@/lib/base-path";
+import { whatsappClickUrl } from "@/lib/order-alerts-shared";
+import { printKitchenTicket } from "@/lib/thermal-print";
+import type { OrderStatus, Station } from "@/lib/extensions/ordering";
+
+type Order = {
+  id: string;
+  code: string;
+  createdAt: string;
+  updatedAt: string;
+  channel: "dine_in" | "delivery" | "pos";
+  tableLabel?: string | null;
+  zoneLabel?: string | null;
+  delivery?: { phone: string; addressLine: string } | null;
+  status: OrderStatus;
+  guestNote?: string;
+  lines: {
+    name: string;
+    nameAr: string;
+    qty: number;
+    unitPrice: number;
+    lineTotal: number;
+    station: Station;
+  }[];
+  totals: { subtotal: number; grandTotal: number };
+};
+
+type Props = {
+  title: string;
+  stationFilter?: Station;
+  role: "cashier" | "station" | "owner";
+  currency?: string;
+  showAllLines?: boolean;
+};
+
+const STATUS_AR: Record<OrderStatus, string> = {
+  new: "جديد",
+  preparing: "قيد التحضير",
+  ready: "جاهز",
+  served: "تم التقديم",
+  cancelled: "ملغي",
+};
+
+export function StaffOrdersBoard({
+  title,
+  stationFilter,
+  role,
+  currency = "EGP",
+  showAllLines = true,
+}: Props) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [soundOn, setSoundOn] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<string>("");
+  const [channelFilter, setChannelFilter] = useState<
+    "all" | "delivery" | "dine_in" | "pos"
+  >("all");
+  const [storeName, setStoreName] = useState("OBELIX");
+  const [staffWaPhone, setStaffWaPhone] = useState("");
+  const knownNew = useRef<Set<string>>(new Set());
+  const audioCtx = useRef<AudioContext | null>(null);
+
+  const playBeep = useCallback(
+    (kind: "normal" | "delivery" = "normal") => {
+      if (!soundOn) return;
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        if (!audioCtx.current) audioCtx.current = new Ctx();
+        const ctx = audioCtx.current;
+        const beep = (freq: number, start: number, dur: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = freq;
+          gain.gain.value = kind === "delivery" ? 0.12 : 0.08;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + start);
+          osc.stop(ctx.currentTime + start + dur);
+        };
+        if (kind === "delivery") {
+          beep(660, 0, 0.12);
+          beep(880, 0.16, 0.12);
+          beep(1100, 0.32, 0.18);
+        } else {
+          beep(880, 0, 0.18);
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [soundOn]
+  );
+
+  const load = useCallback(async () => {
+    try {
+      const q = new URLSearchParams({ open: "1" });
+      if (stationFilter) q.set("station", stationFilter);
+      const res = await fetch(withBasePath(`/api/orders?${q}`), {
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        window.location.href = withBasePath("/dashboard/login");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل");
+      const list = (data.orders || []) as Order[];
+      const newOnes = list.filter(
+        (o) => o.status === "new" && !knownNew.current.has(o.id)
+      );
+      if (knownNew.current.size > 0 && newOnes.length > 0) {
+        const hasDelivery = newOnes.some((o) => o.channel === "delivery");
+        playBeep(hasDelivery ? "delivery" : "normal");
+      }
+      for (const o of list) {
+        if (o.status === "new") knownNew.current.add(o.id);
+      }
+      setOrders(list);
+      setLastRefresh(new Date().toLocaleTimeString("ar-EG"));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    }
+  }, [stationFilter, playBeep]);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 4000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(withBasePath("/api/brand")).then((r) => r.json()).catch(() => null),
+      fetch(withBasePath("/api/ordering/config"))
+        .then((r) => r.json())
+        .catch(() => null),
+    ]).then(([brandData, cfg]) => {
+      if (brandData?.brand?.displayName) {
+        setStoreName(brandData.brand.displayName);
+      }
+      const phone = cfg?.settings?.alerts?.whatsappPhone;
+      if (phone) setStaffWaPhone(phone);
+    });
+  }, []);
+
+  async function setStatus(id: string, status: OrderStatus) {
+    const res = await fetch(withBasePath(`/api/orders/${id}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status,
+        role: role === "station" ? "station" : "cashier",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "فشل التحديث");
+      return;
+    }
+    await load();
+  }
+
+  function openStaffWhatsApp(o: Order) {
+    if (!staffWaPhone) {
+      setError("اضبط رقم واتساب المطعم من الإعدادات");
+      return;
+    }
+    const channelAr =
+      o.channel === "delivery"
+        ? "توصيل"
+        : o.channel === "pos"
+          ? "POS"
+          : "طاولة";
+    const lines = o.lines
+      .map((l) => `• ${l.qty}× ${l.nameAr || l.name}`)
+      .join("\n");
+    const where =
+      o.channel === "delivery"
+        ? `📍 ${o.delivery?.addressLine || "—"}\n📞 ${o.delivery?.phone || "—"}`
+        : o.tableLabel
+          ? `🪑 ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+          : "حضور";
+    const note = o.guestNote ? `\nملاحظة: ${o.guestNote}` : "";
+    const text =
+      `طلب جديد — ${storeName}\n` +
+      `#${o.code} · ${channelAr}\n` +
+      `${where}\n` +
+      `${lines}\n` +
+      `الإجمالي: ${o.totals.grandTotal}${note}`;
+    const url = whatsappClickUrl(staffWaPhone, text);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function openCustomerWhatsApp(o: Order) {
+    const phone = o.delivery?.phone;
+    if (!phone) return;
+    const text = `مرحباً — طلبك #${o.code} من ${storeName} قيد التجهيز.`;
+    const url = whatsappClickUrl(phone, text);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function printKitchen(o: Order) {
+    const lines = (
+      stationFilter
+        ? o.lines.filter((l) => l.station === stationFilter)
+        : o.lines
+    ).map((l) => ({
+      name: l.nameAr || l.name,
+      qty: l.qty,
+      station: l.station,
+    }));
+    if (!lines.length) return;
+    const channelLabel =
+      o.channel === "delivery"
+        ? "توصيل"
+        : o.channel === "pos"
+          ? "POS"
+          : "طاولة";
+    const whereLabel =
+      o.channel === "delivery"
+        ? o.delivery?.addressLine || o.delivery?.phone || "—"
+        : o.tableLabel
+          ? `${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+          : "walk-in";
+    printKitchenTicket({
+      storeName,
+      code: o.code,
+      channelLabel,
+      whereLabel,
+      lines,
+      note: o.guestNote,
+      locale: "ar",
+      dir: "rtl",
+      when: new Date(o.createdAt),
+    });
+  }
+
+  function actionsFor(o: Order): { label: string; status: OrderStatus }[] {
+    if (role === "station") {
+      if (o.status === "new") return [{ label: "تحضير", status: "preparing" }];
+      if (o.status === "preparing")
+        return [{ label: "جاهز", status: "ready" }];
+      return [];
+    }
+    const map: Record<OrderStatus, { label: string; status: OrderStatus }[]> = {
+      new: [
+        { label: "تحضير", status: "preparing" },
+        { label: "إلغاء", status: "cancelled" },
+      ],
+      preparing: [
+        { label: "جاهز", status: "ready" },
+        { label: "إلغاء", status: "cancelled" },
+      ],
+      ready: [
+        { label: "تم التقديم", status: "served" },
+        { label: "إلغاء", status: "cancelled" },
+      ],
+      served: [],
+      cancelled: [],
+    };
+    return map[o.status];
+  }
+
+  const deliveryNew = orders.filter(
+    (o) => o.channel === "delivery" && o.status === "new"
+  ).length;
+  const visible = orders.filter(
+    (o) => channelFilter === "all" || o.channel === channelFilter
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white" dir="rtl">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur">
+        <div>
+          <h1 className="text-xl font-bold text-[#FACF1C]">{title}</h1>
+          <p className="text-xs text-white/45">
+            آخر تحديث: {lastRefresh || "—"} · تحديث تلقائي كل ٤ ثوانٍ
+            {deliveryNew > 0 && (
+              <span className="ms-2 rounded bg-[#FACF1C] px-1.5 py-0.5 font-bold text-black">
+                توصيل جديد ×{deliveryNew}
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSoundOn(true)}
+            className={`min-h-11 rounded-md px-3 text-sm font-semibold ${
+              soundOn
+                ? "bg-[#FACF1C] text-black"
+                : "border border-[#FACF1C] text-[#FACF1C]"
+            }`}
+          >
+            {soundOn ? "الصوت مفعّل" : "تفعيل الصوت"}
+          </button>
+          <Link
+            href="/dashboard/orders"
+            className="flex min-h-11 items-center rounded-md border border-white/20 px-3 text-sm"
+          >
+            الداشبورد
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 pt-3">
+        {(
+          [
+            ["all", "الكل"],
+            ["delivery", "توصيل"],
+            ["dine_in", "طاولة"],
+            ["pos", "POS"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setChannelFilter(key)}
+            className={`min-h-9 rounded-full px-3 text-xs font-semibold ${
+              channelFilter === key
+                ? "bg-[#FACF1C] text-black"
+                : "border border-white/20 text-white/70"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <p className="m-4 rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-200">
+          {error}
+        </p>
+      )}
+
+      <ul className="mx-auto grid max-w-6xl gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        {visible.map((o) => {
+          const lines = showAllLines
+            ? o.lines
+            : stationFilter
+              ? o.lines.filter((l) => l.station === stationFilter)
+              : o.lines;
+          if (stationFilter && lines.length === 0) return null;
+          return (
+            <li
+              key={o.id}
+              className={`rounded-xl border p-4 ${
+                o.channel === "delivery" && o.status === "new"
+                  ? "border-orange-400 bg-orange-400/15 ring-1 ring-orange-400/40"
+                  : o.status === "new"
+                    ? "border-[#FACF1C] bg-[#FACF1C]/10"
+                    : "border-white/10 bg-white/5"
+              }`}
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-mono text-lg font-bold text-[#FACF1C]">
+                    #{o.code}
+                  </p>
+                  <p className="text-xs text-white/50">
+                    {new Date(o.createdAt).toLocaleTimeString("ar-EG")}
+                  </p>
+                </div>
+                <span className="rounded bg-white/10 px-2 py-1 text-xs">
+                  {STATUS_AR[o.status]}
+                </span>
+              </div>
+              <p className="mb-2 text-sm">
+                {o.channel === "delivery" ? (
+                  <>
+                    <span className="text-[#FACF1C]">توصيل</span> ·{" "}
+                    {o.delivery?.phone} · {o.delivery?.addressLine}
+                  </>
+                ) : o.channel === "pos" ? (
+                  <>
+                    <span className="text-[#FACF1C]">POS</span>
+                    {o.tableLabel
+                      ? ` · ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+                      : " · walk-in"}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[#FACF1C]">طاولة</span> ·{" "}
+                    {o.zoneLabel ? `${o.zoneLabel} / ` : ""}
+                    {o.tableLabel}
+                  </>
+                )}
+              </p>
+              {o.guestNote && (
+                <p className="mb-2 text-xs text-white/60">ملاحظة: {o.guestNote}</p>
+              )}
+              <ul className="mb-3 space-y-1 text-sm">
+                {lines.map((l, i) => (
+                  <li key={`${o.id}-${i}`} className="flex justify-between gap-2">
+                    <span>
+                      {l.qty}× {l.nameAr || l.name}
+                      {!showAllLines ? null : (
+                        <span className="ms-1 text-[10px] text-white/35">
+                          ({l.station})
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-white/50">
+                      {formatPrice(l.lineTotal, currency, "ar")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mb-3 text-sm font-bold">
+                {formatPrice(o.totals.grandTotal, currency, "ar")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {actionsFor(o).map((a) => (
+                  <button
+                    key={a.status}
+                    type="button"
+                    onClick={() => setStatus(o.id, a.status)}
+                    className={`min-h-11 rounded-md px-3 text-sm font-semibold ${
+                      a.status === "cancelled"
+                        ? "border border-red-400/50 text-red-300"
+                        : "bg-[#FACF1C] text-black"
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => printKitchen(o)}
+                  className="min-h-11 rounded-md border border-white/25 px-3 text-sm font-semibold text-white/90"
+                >
+                  طباعة مطبخ
+                </button>
+                {staffWaPhone && (
+                  <button
+                    type="button"
+                    onClick={() => openStaffWhatsApp(o)}
+                    className="min-h-11 rounded-md border border-emerald-400/40 px-3 text-sm font-semibold text-emerald-300"
+                  >
+                    واتساب للمطعم
+                  </button>
+                )}
+                {o.channel === "delivery" && o.delivery?.phone && (
+                  <button
+                    type="button"
+                    onClick={() => openCustomerWhatsApp(o)}
+                    className="min-h-11 rounded-md border border-sky-400/40 px-3 text-sm font-semibold text-sky-300"
+                  >
+                    واتساب للعميل
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {visible.length === 0 && !error && (
+        <p className="py-20 text-center text-white/40">
+          {orders.length === 0
+            ? "لا توجد طلبات مفتوحة"
+            : "لا طلبات في هذا الفلتر"}
+        </p>
+      )}
+    </div>
+  );
+}

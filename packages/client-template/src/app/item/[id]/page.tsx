@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { readBrand } from "@/lib/brand";
+import { readBrand, defaultLocale } from "@/lib/brand";
 import {
   getCategory,
   getProduct,
@@ -11,16 +11,32 @@ import {
   resolveDiscount,
 } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
-import { defaultLocale } from "@/lib/brand";
 import { pickLocalized } from "@/lib/i18n";
+import {
+  isOrderingEnabled,
+  normalizeOrderingFeatures,
+} from "@/lib/extensions/ordering";
+import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
+import {
+  applyBranchToProduct,
+  resolveBranchId,
+} from "@/lib/branches-data";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
+import { ItemOrderPanel } from "@/components/menu/item-order-panel";
 
-type Ctx = { params: Promise<{ id: string }> };
+type Ctx = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ branch?: string }>;
+};
 
-export default async function ItemPage({ params }: Ctx) {
+export default async function ItemPage({ params, searchParams }: Ctx) {
   const { id } = await params;
-  const [brand, product] = await Promise.all([readBrand(), getProduct(id)]);
-  if (!product || !product.available) notFound();
+  const sp = await searchParams;
+  const branchId = await resolveBranchId(sp.branch || null);
+  const [brand, productRaw] = await Promise.all([readBrand(), getProduct(id)]);
+  if (!productRaw) notFound();
+  const product = await applyBranchToProduct(branchId, productRaw);
+  if (!product.available) notFound();
 
   const category = product.categoryId
     ? await getCategory(product.categoryId)
@@ -29,6 +45,12 @@ export default async function ItemPage({ params }: Ctx) {
   const pricing = priceAfterDiscount(product.price, discount);
   const locale = defaultLocale(brand.languages);
   const currency = brand.currency || "EGP";
+  const features = normalizeOrderingFeatures(brand.extensions?.ordering);
+  const orderingOn = isOrderingEnabled(features);
+  const invOn = await isInventoryOn();
+  const stockMap = invOn ? await getStockMap(branchId) : {};
+  const stockQty = invOn ? (stockMap[product.id] ?? 0) : null;
+  const outOfStock = stockQty !== null && stockQty <= 0;
   const title = pickLocalized(locale, product.name, product.nameEn);
   const desc = pickLocalized(
     locale,
@@ -119,10 +141,52 @@ export default async function ItemPage({ params }: Ctx) {
                 </span>
               </>
             )}
+            {outOfStock && (
+              <span className="rounded bg-black/10 px-2 py-0.5 text-xs font-bold text-black/55">
+                {locale === "en" ? "Sold out" : "نفد"}
+              </span>
+            )}
           </div>
 
           {desc && (
             <p className="text-sm leading-relaxed text-black/70">{desc}</p>
+          )}
+
+          {orderingOn ? (
+            outOfStock ? (
+              <p className="rounded-xl border border-black/10 bg-white p-4 text-center text-sm text-black/55">
+                {locale === "en"
+                  ? "This item is currently sold out."
+                  : "الصنف نفد حالياً من المخزون."}
+              </p>
+            ) : (
+              <ItemOrderPanel
+                locale={locale}
+                currency={currency}
+                maxItems={features.maxItemsPerOrder || 50}
+                tableOrdering={features.tableOrderingEnabled}
+                delivery={features.deliveryEnabled}
+                zonesEnabled={
+                  features.tableOrderingEnabled && features.zonesIndoorOutdoor
+                }
+                guestNoteEnabled={features.guestNoteEnabled}
+                stockQty={stockQty}
+                branchId={branchId}
+                item={{
+                  itemId: product.id,
+                  name: product.name,
+                  nameEn: product.nameEn,
+                  unitPrice: pricing.final,
+                  image: product.image,
+                }}
+              />
+            )
+          ) : (
+            <p className="text-center text-xs text-black/40">
+              {locale === "en"
+                ? "Ordering is not enabled for this menu."
+                : "الطلب من المنيو غير مفعّل لهذا العميل."}
+            </p>
           )}
 
           {reviews.length > 0 && (
@@ -134,7 +198,7 @@ export default async function ItemPage({ params }: Ctx) {
                 {reviews.map((r) => (
                   <li key={r.id} className="text-sm">
                     <span className="text-[var(--brand-accent)]">
-                      {"★".repeat(r.rating)}
+                      {"★".repeat(r.rating ?? 0)}
                     </span>{" "}
                     {r.comment}
                   </li>
@@ -143,13 +207,9 @@ export default async function ItemPage({ params }: Ctx) {
             </div>
           )}
 
-          <p className="text-center text-xs text-black/40">
-            {locale === "en"
-              ? "Ordering coming in a later release."
-              : "الطلب قريباً في إصدار لاحق."}
-          </p>
-
-          <PublicMenuFooter displayName={brand.displayName} locale={locale} />
+          <div className={orderingOn && !outOfStock ? "pb-20" : undefined}>
+            <PublicMenuFooter displayName={brand.displayName} locale={locale} />
+          </div>
         </div>
       </div>
     </div>

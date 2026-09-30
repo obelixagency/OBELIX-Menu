@@ -32,7 +32,10 @@ export default async function DashboardHome() {
         <div>
           <h1 className="text-xl font-bold">مرحباً — {brand.displayName}</h1>
           <p className="text-sm text-black/50">
-            إدارة الفئات والمنتجات. المنيو للعرض فقط في v1.
+            إدارة الفئات والمنتجات
+            {brand.extensions?.ordering?.orderFromMenu
+              ? " والطلبات."
+              : ". المنيو للعرض فقط ما لم تُفعَّل ميزة الطلب من الوكالة."}
           </p>
         </div>
         <LogoutButton />
@@ -51,6 +54,16 @@ export default async function DashboardHome() {
         <Link href="/dashboard/products">
           <Button variant="secondary">إدارة المنتجات</Button>
         </Link>
+        {brand.extensions?.ordering?.orderFromMenu && (
+          <Link href="/dashboard/orders">
+            <Button variant="outline">الطلبات</Button>
+          </Link>
+        )}
+        {brand.extensions?.ordering?.orderFromMenu && (
+          <Link href="/dashboard/sales">
+            <Button variant="outline">المبيعات</Button>
+          </Link>
+        )}
         <Link href="/" target="_blank">
           <Button variant="outline">فتح المنيو</Button>
         </Link>

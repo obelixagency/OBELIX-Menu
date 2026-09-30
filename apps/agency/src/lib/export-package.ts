@@ -4,6 +4,7 @@ import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import archiver from "archiver";
 import type { ClientRecord } from "./types";
+import { normalizeOrderingFeatures } from "./types";
 import { getUploadsDir, updateClient } from "./clients";
 
 const IGNORE = new Set([
@@ -165,14 +166,7 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
   await fs.rm(packageDir, { recursive: true, force: true });
   await copyDir(templateDir, packageDir);
 
-  // Drop template sample uploads so the package only ships this client's assets
-  const uploadsDest = path.join(packageDir, "public", "uploads");
-  await fs.mkdir(uploadsDest, { recursive: true });
-  for (const entry of await fs.readdir(uploadsDest)) {
-    if (entry === ".gitkeep") continue;
-    await fs.rm(path.join(uploadsDest, entry), { force: true });
-  }
-
+  const ordering = normalizeOrderingFeatures(client.ordering);
   const brand = {
     displayName: client.displayName,
     slug: client.slug,
@@ -189,9 +183,12 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
       : null,
     extensions: {
       ordering: {
-        enabled: false,
-        provider: null as string | null,
-        note: "v1 view-only — enable WhatsApp/cart in a later release",
+        ...ordering,
+        enabled: ordering.orderFromMenu,
+        provider: ordering.orderFromMenu ? ("cart" as const) : null,
+        note: ordering.orderFromMenu
+          ? "Order-from-menu enabled by agency export."
+          : "v1 view-only — enable order-from-menu in agency Brand Kit flags.",
       },
     },
   };
@@ -206,6 +203,32 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
   await fs.writeFile(
     path.join(packageDir, "data", "menu.json"),
     JSON.stringify(sampleMenu(client.displayName), null, 2),
+    "utf8"
+  );
+  // Fresh ordering store — do not ship demo tables/orders into client packages
+  await fs.writeFile(
+    path.join(packageDir, "data", "ordering.json"),
+    JSON.stringify(
+      {
+        zones: [],
+        tables: [],
+        stationRouting: {},
+        settings: {
+          guestNoteEnabled: ordering.guestNoteEnabled !== false,
+          maxItemsPerOrder: ordering.maxItemsPerOrder || 50,
+          soundEnabled: true,
+        },
+        orders: [],
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+  // Staff users — seeded on first login when staffAccountsEnabled
+  await fs.writeFile(
+    path.join(packageDir, "data", "users.json"),
+    JSON.stringify({ users: [] }, null, 2),
     "utf8"
   );
   await fs.writeFile(

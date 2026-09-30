@@ -1,0 +1,65 @@
+{
+  "zones": [
+    {
+      "id": "zone-indoor",
+      "name": "Indoor",
+      "nameAr": "داخلي",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "zone-outdoor",
+      "name": "Outdoor",
+      "nameAr": "خارجي",
+      "sortOrder": 2,
+      "active": true
+    }
+  ],
+  "tables": [
+    {
+      "id": "t1",
+      "label": "T1",
+      "labelAr": "١",
+      "zoneId": "zone-indoor",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "t2",
+      "label": "T2",
+      "labelAr": "٢",
+      "zoneId": "zone-indoor",
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "t3",
+      "label": "T3",
+      "labelAr": "٣",
+      "zoneId": "zone-outdoor",
+      "sortOrder": 3,
+      "active": true
+    }
+  ],
+  "stationRouting": {
+    "cat-hot": "barista",
+    "cat-cold": "barista",
+    "cat-breakfast": "kitchen",
+    "cat-sweets": "kitchen",
+    "cat-food": "kitchen"
+  },
+  "settings": {
+    "guestNoteEnabled": true,
+    "maxItemsPerOrder": 50,
+    "soundEnabled": true,
+    "alerts": {
+      "alertOnDelivery": true,
+      "alertOnDineIn": false,
+      "alertOnPos": false,
+      "whatsappPhone": "",
+      "callMeBotApiKey": "",
+      "webhookUrl": ""
+    }
+  },
+  "orders": []
+}
