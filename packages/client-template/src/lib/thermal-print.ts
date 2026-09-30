@@ -10,6 +10,15 @@ export type ThermalLine = {
   unitPrice: number;
 };
 
+export type ClientPrintBrand = {
+  /** Client logo URL (Brand Kit) — shown on paper */
+  logoUrl?: string | null;
+  /** Client primary from Brand Kit */
+  primary?: string;
+  /** Client accent from Brand Kit */
+  accent?: string;
+};
+
 export type ThermalReceiptInput = {
   storeName: string;
   code: string;
@@ -22,6 +31,8 @@ export type ThermalReceiptInput = {
   /** Optional footer note */
   note?: string;
   when?: Date;
+  /** Client Brand Kit for paper — not OBELIX chrome */
+  brand?: ClientPrintBrand;
 };
 
 function esc(s: string): string {
@@ -56,14 +67,14 @@ export function buildEscPosText(r: ThermalReceiptInput): string {
     `Pay: ${r.method.toUpperCase()}`,
     r.note ? `Note: ${r.note}` : "",
     sep,
-    "Powered by OBELIX",
+    r.storeName,
     "\n\n\n",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/** Open a print window sized for 80mm thermal paper. */
+/** Open a print window sized for 80mm thermal paper — client Brand Kit on paper. */
 export function printThermalReceipt(r: ThermalReceiptInput): void {
   if (typeof window === "undefined") return;
   const dir = r.dir || (r.locale === "ar" ? "rtl" : "ltr");
@@ -71,6 +82,11 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
   const when = r.when || new Date();
   const codeLabel = locale === "ar" ? "الكود" : "Code";
   const totalLabel = locale === "ar" ? "الإجمالي" : "Total";
+  const primary = r.brand?.primary || "#1a1410";
+  const accent = r.brand?.accent || "#D4A017";
+  const logo = r.brand?.logoUrl
+    ? `<img class="logo" src="${esc(r.brand.logoUrl)}" alt=""/>`
+    : "";
   const rows = r.lines
     .map(
       (l) =>
@@ -90,14 +106,16 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
     margin: 0 auto;
     padding: 2mm;
     width: 72mm;
-    color: #000;
+    color: #111;
     font-family: "Courier New", ui-monospace, monospace;
     font-size: 12px;
     line-height: 1.35;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  h1 { font-size: 15px; margin: 0 0 4px; text-align: center; font-weight: 800; }
+  .logo { display: block; max-height: 28mm; max-width: 40mm; margin: 0 auto 4px; object-fit: contain; }
+  h1 { font-size: 15px; margin: 0 0 4px; text-align: center; font-weight: 800; color: ${esc(primary)}; }
+  .bar { height: 3px; background: ${esc(accent)}; margin: 4px 0 6px; }
   .muted { color: #222; font-size: 11px; text-align: center; margin: 0 0 2px; }
   table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   td { padding: 3px 0; border-bottom: 1px dashed #999; vertical-align: top; word-break: break-word; }
@@ -109,9 +127,10 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
     display: flex;
     justify-content: space-between;
     gap: 8px;
+    color: ${esc(primary)};
   }
-  .pay { margin-top: 6px; text-align: center; font-size: 11px; }
-  .cut { margin-top: 10px; text-align: center; font-size: 10px; color: #444; }
+  .pay { margin-top: 6px; text-align: center; font-size: 11px; color: ${esc(accent)}; font-weight: 700; }
+  .cut { margin-top: 10px; text-align: center; font-size: 9px; color: #666; }
   @media print {
     html, body { width: 72mm; }
     body { padding: 0; }
@@ -119,14 +138,16 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
 </style>
 </head>
 <body>
+  ${logo}
   <h1>${esc(r.storeName)}</h1>
+  <div class="bar"></div>
   <p class="muted">${codeLabel}: ${esc(r.code)}</p>
   <p class="muted">${esc(when.toLocaleString(locale === "ar" ? "ar-EG" : "en-GB"))}</p>
   <table>${rows}</table>
   <div class="total"><span>${totalLabel}</span><span>${r.total.toFixed(2)} ${esc(r.currency)}</span></div>
   <p class="pay">${esc(r.method.toUpperCase())}</p>
   ${r.note ? `<p class="muted">${esc(r.note)}</p>` : ""}
-  <p class="cut">— OBELIX —</p>
+  <p class="cut">— ${esc(r.storeName)} —</p>
   <script>window.onload=function(){window.focus();window.print();}</script>
 </body>
 </html>`;
@@ -148,15 +169,21 @@ export type KitchenTicketInput = {
   locale?: "ar" | "en";
   dir?: "rtl" | "ltr";
   when?: Date;
+  /** Client Brand Kit accents on prep ticket */
+  brand?: ClientPrintBrand;
 };
 
-/** Compact kitchen / barista ticket (80mm). */
+/** Compact kitchen / barista ticket (80mm) — client identity on paper. */
 export function printKitchenTicket(t: KitchenTicketInput): void {
   if (typeof window === "undefined") return;
   const dir = t.dir || (t.locale === "ar" ? "rtl" : "ltr");
   const locale = t.locale || "ar";
   const when = t.when || new Date();
   const title = locale === "ar" ? "تذكرة تحضير" : "Prep ticket";
+  const primary = t.brand?.primary || "#000";
+  const logo = t.brand?.logoUrl
+    ? `<img class="logo" src="${esc(t.brand.logoUrl)}" alt=""/>`
+    : "";
   const rows = t.lines
     .map(
       (l) =>
@@ -179,10 +206,12 @@ export function printKitchenTicket(t: KitchenTicketInput): void {
     margin: 0 auto; padding: 2mm; width: 72mm; color: #000;
     font-family: "Courier New", ui-monospace, monospace;
     font-size: 13px; line-height: 1.35;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  h1 { font-size: 16px; margin: 0 0 4px; text-align: center; font-weight: 900; }
+  .logo { display: block; max-height: 20mm; max-width: 36mm; margin: 0 auto 3px; object-fit: contain; }
+  h1 { font-size: 16px; margin: 0 0 4px; text-align: center; font-weight: 900; color: ${esc(primary)}; }
   .meta { text-align: center; font-size: 11px; margin: 0 0 2px; }
-  .big { font-size: 18px; font-weight: 900; text-align: center; margin: 6px 0; }
+  .big { font-size: 18px; font-weight: 900; text-align: center; margin: 6px 0; color: ${esc(primary)}; }
   table { width: 100%; border-collapse: collapse; margin-top: 6px; }
   td { padding: 4px 0; border-bottom: 1px dashed #000; vertical-align: top; }
   td.qty { width: 18%; font-weight: 900; font-size: 15px; }
@@ -192,6 +221,7 @@ export function printKitchenTicket(t: KitchenTicketInput): void {
 </style>
 </head>
 <body>
+  ${logo}
   <h1>${esc(title)}</h1>
   <p class="big">#${esc(t.code)}</p>
   <p class="meta">${esc(t.storeName)}</p>

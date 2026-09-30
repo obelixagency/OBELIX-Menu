@@ -28,6 +28,17 @@ import {
   type PendingPosOrder,
 } from "@/lib/pos-offline-queue";
 
+/** Unified OBELIX POS chrome — not client Brand Kit */
+const OX = {
+  bg: "#0a0a0a",
+  panel: "#141414",
+  card: "#1a1a1a",
+  line: "rgba(255,255,255,0.12)",
+  muted: "rgba(255,255,255,0.55)",
+  yellow: "#FACF1C",
+  ink: "#0a0a0a",
+} as const;
+
 type CatalogProduct = {
   id: string;
   categoryId: string | null;
@@ -66,9 +77,18 @@ type TicketLine = {
   nameEn: string;
   qty: number;
   unitPrice: number;
+  image?: string | null;
 };
 
 type PaymentMethod = "cash" | "card" | "other";
+
+type HeldTicket = {
+  id: string;
+  lines: TicketLine[];
+  note: string;
+  tableId: string;
+  total: number;
+};
 
 const COPY = {
   en: {
@@ -77,20 +97,25 @@ const COPY = {
     table: "Table",
     ticket: "Ticket",
     empty: "Tap items to add",
-    total: "Total",
+    total: "Subtotal",
+    payment: "Payment",
     cash: "Cash",
     card: "Card",
     other: "Other",
-    clear: "Clear",
+    clear: "Clear all",
+    hold: "Hold Ticket",
+    resume: "Resume held",
+    held: "Held",
     closing: "Closing…",
     closed: "Closed",
     code: "Code",
     loading: "Loading…",
     error: "Could not load POS",
-    back: "Dashboard",
+    back: "Back",
     cashier: "Cashier",
     note: "Note (optional)",
-    powered: "Powered by OBELIX",
+    brandFooter: "OBELIX Menu",
+    poweredBy: "Powered by OBELIX",
     print: "Print 80mm",
     kitchen: "Kitchen",
     escPos: "ESC/POS",
@@ -110,6 +135,7 @@ const COPY = {
     discard: "Discard",
     install: "Install POS",
     installHint: "Add to Home Screen for faster offline use",
+    items: "items",
   },
   ar: {
     all: "الكل",
@@ -118,19 +144,24 @@ const COPY = {
     ticket: "التذكرة",
     empty: "اضغط على صنف للإضافة",
     total: "الإجمالي",
+    payment: "الدفع",
     cash: "كاش",
     card: "بطاقة",
     other: "أخرى",
-    clear: "مسح",
+    clear: "مسح الكل",
+    hold: "تعليق التذكرة",
+    resume: "استئناف المعلّق",
+    held: "معلّق",
     closing: "جاري الإقفال…",
     closed: "تم الإقفال",
     code: "الكود",
     loading: "جاري التحميل…",
     error: "تعذّر تحميل نقطة البيع",
-    back: "الداشبورد",
+    back: "رجوع",
     cashier: "كاشير",
     note: "ملاحظة (اختياري)",
-    powered: "مدعوم من OBELIX",
+    brandFooter: "OBELIX Menu",
+    poweredBy: "Powered by OBELIX",
     print: "طباعة ٨٠مم",
     kitchen: "مطبخ",
     escPos: "ESC/POS",
@@ -150,8 +181,32 @@ const COPY = {
     discard: "تجاهل",
     install: "تثبيت نقطة البيع",
     installHint: "ضيف للشاشة الرئيسية عشان الأوفلاين أسرع",
+    items: "أصناف",
   },
 } as const;
+
+function mediaUrl(src: string | null | undefined): string | null {
+  if (!src) return null;
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
+    return src;
+  }
+  return withBasePath(src);
+}
+
+function categoryIconKind(
+  name: string,
+  nameEn: string
+): "all" | "coffee" | "food" | "drink" | "dessert" | "other" {
+  const s = `${name} ${nameEn}`.toLowerCase();
+  if (/coffee|espresso|كابتشينو|قهوة|hot drink|مشروب ساخن|turkish/.test(s))
+    return "coffee";
+  if (/dessert|sweet|حلو|كنافة|بسبوسة|muffin|cookie|dessert/.test(s))
+    return "dessert";
+  if (/food|أكل|breakfast|فطار|sandwich|foul|فول|croissant|toast/.test(s))
+    return "food";
+  if (/drink|juice|cold|مشروب|عصير|latte|mango|tea|شاي/.test(s)) return "drink";
+  return "other";
+}
 
 export function PosClient({ staffName }: { staffName?: string | null }) {
   const [loading, setLoading] = useState(true);
@@ -192,6 +247,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     prompt: () => Promise<void>;
   } | null>(null);
   const [showInstallHint, setShowInstallHint] = useState(false);
+  const [held, setHeld] = useState<HeldTicket[]>([]);
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
 
   function applyCatalog(data: {
     brand?: BrandInfo;
@@ -222,106 +279,109 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     }
   }, []);
 
-  const syncQueue = useCallback(async (onlyLocalId?: string) => {
-    if (typeof navigator !== "undefined" && !navigator.onLine) return;
-    setSyncing(true);
-    try {
-      const rows = await listPending();
-      const targets = onlyLocalId
-        ? rows.filter((r) => r.localId === onlyLocalId)
-        : rows;
-      for (const row of targets) {
-        if (row.status === "syncing") continue;
-        await updatePending(row.localId, { status: "syncing", lastError: undefined });
-        try {
-          const res = await fetch(withBasePath("/api/pos/orders"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              paymentMethod: row.paymentMethod,
-              tableId: row.tableId,
-              guestNote: row.guestNote,
-              branchId: row.branchId,
-              lines: row.lines,
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            const errMsg = String(data.error || `HTTP ${res.status}`);
-            await updatePending(row.localId, {
-              status: "failed",
-              lastError: errMsg,
-            });
-            continue;
-          }
-          await removePending(row.localId);
-          const code = data.order?.code as string | undefined;
-          if (code) {
-            setLastCode(code);
-            setLastReceipt({
-              code,
-              method: row.paymentMethod,
-              lines: row.receiptLines,
-              total: row.total,
-              whereLabel: row.tableId || "walk-in",
-              note: row.guestNote,
-            });
-          }
-        } catch (err) {
-          await updatePending(row.localId, {
-            status: "pending",
-            lastError: err instanceof Error ? err.message : "sync failed",
-          });
-          if (isNetworkError(err)) break;
-        }
-      }
-      await refreshPending();
-    } finally {
-      setSyncing(false);
-    }
-  }, [refreshPending]);
-
-  const load = useCallback(
-    async (preferredBranch?: string) => {
-      setLoading(true);
-      setError(null);
+  const syncQueue = useCallback(
+    async (onlyLocalId?: string) => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      setSyncing(true);
       try {
-        const qs = preferredBranch
-          ? `?branch=${encodeURIComponent(preferredBranch)}`
-          : "";
-        const [catRes, shiftRes] = await Promise.all([
-          fetch(withBasePath(`/api/pos/catalog${qs}`)),
-          fetch(withBasePath("/api/shifts")),
-        ]);
-        const data = await catRes.json();
-        if (!catRes.ok) throw new Error(data.error || "Failed");
-        applyCatalog(data);
-        setUsingCache(false);
-        await saveCatalogCache(
-          (data.branchId as string) || preferredBranch || "default",
-          data
-        );
-        if (shiftRes.ok) {
-          const s = await shiftRes.json();
-          setShiftOpen(Boolean(s.open));
-        } else {
-          setShiftOpen(null);
+        const rows = await listPending();
+        const targets = onlyLocalId
+          ? rows.filter((r) => r.localId === onlyLocalId)
+          : rows;
+        for (const row of targets) {
+          if (row.status === "syncing") continue;
+          await updatePending(row.localId, {
+            status: "syncing",
+            lastError: undefined,
+          });
+          try {
+            const res = await fetch(withBasePath("/api/pos/orders"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                paymentMethod: row.paymentMethod,
+                tableId: row.tableId,
+                guestNote: row.guestNote,
+                branchId: row.branchId,
+                lines: row.lines,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              const errMsg = String(data.error || `HTTP ${res.status}`);
+              await updatePending(row.localId, {
+                status: "failed",
+                lastError: errMsg,
+              });
+              continue;
+            }
+            await removePending(row.localId);
+            const code = data.order?.code as string | undefined;
+            if (code) {
+              setLastCode(code);
+              setLastReceipt({
+                code,
+                method: row.paymentMethod,
+                lines: row.receiptLines,
+                total: row.total,
+                whereLabel: row.tableId || "walk-in",
+                note: row.guestNote,
+              });
+            }
+          } catch (err) {
+            await updatePending(row.localId, {
+              status: "pending",
+              lastError: err instanceof Error ? err.message : "sync failed",
+            });
+            if (isNetworkError(err)) break;
+          }
         }
-      } catch (err) {
-        const cached = await loadCatalogCache(preferredBranch).catch(() => null);
-        if (cached?.payload && typeof cached.payload === "object") {
-          applyCatalog(cached.payload as Parameters<typeof applyCatalog>[0]);
-          setUsingCache(true);
-          setError(null);
-        } else {
-          setError(err instanceof Error ? err.message : "Error");
-        }
+        await refreshPending();
       } finally {
-        setLoading(false);
+        setSyncing(false);
       }
     },
-    []
+    [refreshPending]
   );
+
+  const load = useCallback(async (preferredBranch?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = preferredBranch
+        ? `?branch=${encodeURIComponent(preferredBranch)}`
+        : "";
+      const [catRes, shiftRes] = await Promise.all([
+        fetch(withBasePath(`/api/pos/catalog${qs}`)),
+        fetch(withBasePath("/api/shifts")),
+      ]);
+      const data = await catRes.json();
+      if (!catRes.ok) throw new Error(data.error || "Failed");
+      applyCatalog(data);
+      setUsingCache(false);
+      await saveCatalogCache(
+        (data.branchId as string) || preferredBranch || "default",
+        data
+      );
+      if (shiftRes.ok) {
+        const s = await shiftRes.json();
+        setShiftOpen(Boolean(s.open));
+      } else {
+        setShiftOpen(null);
+      }
+    } catch (err) {
+      const cached = await loadCatalogCache(preferredBranch).catch(() => null);
+      if (cached?.payload && typeof cached.payload === "object") {
+        applyCatalog(cached.payload as Parameters<typeof applyCatalog>[0]);
+        setUsingCache(true);
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Error");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load();
@@ -376,7 +436,6 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       setShowInstallHint(true);
     }
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    // iOS / already installed: soft hint once per session
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       // @ts-expect-error iOS
@@ -384,7 +443,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     if (!isStandalone && !sessionStorage.getItem("obelix_install_dismissed")) {
       setShowInstallHint(true);
     }
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
   }, []);
 
   async function discardPending(localId: string) {
@@ -403,21 +463,24 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         body: JSON.stringify({ action: "select", branchId: id }),
       });
     } catch {
-      /* offline — still load cached branch catalog if any */
+      /* offline */
     }
     await load(id);
   }
 
   const t = COPY[locale];
   const dir = dirFor(locale);
-  const localeOptions = brand ? localesFor(brand.languages) : (["en"] as Locale[]);
+  const localeOptions = brand
+    ? localesFor(brand.languages)
+    : (["en"] as Locale[]);
 
   const leafCategories = useMemo(() => {
     const parents = new Set(
       categories.filter((c) => c.parentId).map((c) => c.parentId as string)
     );
-    // Prefer leaf cats that have products; fallback to all active
-    const withProducts = new Set(products.map((p) => p.categoryId).filter(Boolean));
+    const withProducts = new Set(
+      products.map((p) => p.categoryId).filter(Boolean)
+    );
     return categories.filter(
       (c) => withProducts.has(c.id) || (!parents.has(c.id) && !c.parentId)
     );
@@ -436,6 +499,11 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     () =>
       Math.round(lines.reduce((s, l) => s + l.unitPrice * l.qty, 0) * 100) /
       100,
+    [lines]
+  );
+
+  const itemCount = useMemo(
+    () => lines.reduce((s, l) => s + l.qty, 0),
     [lines]
   );
 
@@ -470,6 +538,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           nameEn: p.nameEn,
           qty: 1,
           unitPrice: p.price,
+          image: p.image,
         },
       ];
     });
@@ -494,13 +563,56 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     );
   }
 
+  function holdTicket() {
+    if (!lines.length) {
+      if (held.length) {
+        const last = held[held.length - 1];
+        setLines(last.lines);
+        setNote(last.note);
+        setTableId(last.tableId);
+        setHeld((h) => h.slice(0, -1));
+      }
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `hold-${Date.now()}`;
+    setHeld((h) => [
+      ...h,
+      { id, lines: [...lines], note, tableId, total },
+    ]);
+    setLines([]);
+    setNote("");
+    setLastCode(null);
+    setPayError(null);
+  }
+
+  function resumeHeld(id: string) {
+    const ticket = held.find((h) => h.id === id);
+    if (!ticket) return;
+    if (lines.length) {
+      setPayError(
+        locale === "ar"
+          ? "امسح أو علّق التذكرة الحالية أولاً"
+          : "Clear or hold the current ticket first"
+      );
+      return;
+    }
+    setLines(ticket.lines);
+    setNote(ticket.note);
+    setTableId(ticket.tableId);
+    setHeld((h) => h.filter((x) => x.id !== id));
+  }
+
   async function closeTicket(method: PaymentMethod) {
     if (!lines.length || closing) return;
     setClosing(true);
     setPayError(null);
+    setPayMethod(method);
     const snapshot = { lines: [...lines], total };
     const whereLabel =
-      tables.find((t) => t.id === tableId)?.label ||
+      tables.find((tb) => tb.id === tableId)?.label ||
       (locale === "ar" ? "حضور" : "walk-in");
     const noteSnap = note.trim() || undefined;
     const body = {
@@ -577,7 +689,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         try {
           await queueOffline();
         } catch (qErr) {
-          setPayError(qErr instanceof Error ? qErr.message : "Offline queue failed");
+          setPayError(
+            qErr instanceof Error ? qErr.message : "Offline queue failed"
+          );
         }
       } else {
         setPayError(err instanceof Error ? err.message : "Error");
@@ -606,6 +720,15 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     }
   }
 
+  function clientPrintBrand() {
+    if (!brand) return undefined;
+    return {
+      logoUrl: mediaUrl(brand.logoUrl),
+      primary: brand.colors.primary,
+      accent: brand.colors.accent,
+    };
+  }
+
   function receiptPayload() {
     if (!lastReceipt || !brand) return null;
     return {
@@ -616,6 +739,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       total: lastReceipt.total,
       locale,
       dir,
+      brand: clientPrintBrand(),
       lines: lastReceipt.lines.map((l) => ({
         name: pickLocalized(locale, l.name, l.nameEn),
         qty: l.qty,
@@ -644,6 +768,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       note: lastReceipt.note,
       locale,
       dir,
+      brand: clientPrintBrand(),
     });
   }
 
@@ -655,7 +780,10 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm opacity-60">
+      <div
+        className="flex min-h-screen items-center justify-center text-sm"
+        style={{ background: OX.bg, color: OX.yellow }}
+      >
         {t.loading}
       </div>
     );
@@ -663,52 +791,59 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
   if (error || !brand) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6">
-        <p className="text-sm text-red-600">{error || t.error}</p>
-        <Link href="/dashboard" className="underline text-sm">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3 p-6"
+        style={{ background: OX.bg, color: "#fff" }}
+      >
+        <p className="text-sm text-red-300">{error || t.error}</p>
+        <Link
+          href="/dashboard"
+          className="text-sm underline"
+          style={{ color: OX.yellow }}
+        >
           {t.back}
         </Link>
       </div>
     );
   }
 
-  const primary = brand.colors.primary;
-  const accent = brand.colors.accent;
-  const surface = brand.colors.surface;
+  const logoSrc = mediaUrl(brand.logoUrl);
 
   return (
     <div
       className="flex min-h-screen flex-col"
       dir={dir}
       lang={locale}
-      style={{ background: surface, color: "#1a1410" }}
+      style={{ background: OX.bg, color: "#fff" }}
     >
+      {/* Header — OBELIX chrome + tiny client mark */}
       <header
-        className="flex flex-wrap items-center gap-3 border-b border-black/10 px-3 py-2.5 sm:px-4"
-        style={{ background: "#fff" }}
+        className="flex flex-wrap items-center gap-3 border-b px-3 py-3 sm:px-5"
+        style={{ borderColor: OX.line, background: OX.panel }}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {brand.logoUrl ? (
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {/* Client logo — venue identity; chrome stays OBELIX */}
+          {logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={brand.logoUrl}
-              alt=""
-              className="h-10 w-10 rounded-lg object-contain"
+              src={logoSrc}
+              alt={brand.displayName}
+              className="h-12 w-12 shrink-0 rounded-xl object-contain bg-white/95 p-1"
             />
           ) : (
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white"
-              style={{ background: primary }}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-black"
+              style={{ background: OX.yellow, color: OX.ink }}
             >
               {brand.displayName.slice(0, 1)}
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate font-bold" style={{ color: primary }}>
+            <p className="truncate text-base font-bold text-white">
               {brand.displayName}
             </p>
-            <p className="text-[11px] opacity-50">
-              {t.cashier}
+            <p className="truncate text-[11px]" style={{ color: OX.muted }}>
+              <span style={{ color: OX.yellow }}>OBELIX</span> POS · {t.cashier}
               {staffName ? ` · ${staffName}` : ""}
             </p>
           </div>
@@ -719,27 +854,31 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
             <select
               value={branchId}
               onChange={(e) => switchBranch(e.target.value)}
-              className="min-h-10 rounded-md border border-black/15 bg-white px-2 text-sm font-medium"
+              className="min-h-10 rounded-lg border bg-transparent px-2 text-sm font-medium text-white"
+              style={{ borderColor: OX.line }}
             >
               {branches.map((b) => (
-                <option key={b.id} value={b.id}>
+                <option key={b.id} value={b.id} className="bg-black">
                   {pickLocalized(locale, b.name, b.nameEn || b.name)}
                 </option>
               ))}
             </select>
           )}
+
           {localeOptions.length > 1 && (
-            <div className="inline-flex overflow-hidden rounded-md border border-black/15">
+            <div
+              className="inline-flex overflow-hidden rounded-lg border"
+              style={{ borderColor: OX.line }}
+            >
               {localeOptions.map((loc) => (
                 <button
                   key={loc}
                   type="button"
-                  className={cn(
-                    "min-h-9 min-w-9 px-2 text-xs font-bold",
-                    locale === loc ? "text-white" : "bg-white opacity-60"
-                  )}
+                  className="min-h-9 min-w-9 px-2 text-xs font-bold"
                   style={
-                    locale === loc ? { background: primary } : undefined
+                    locale === loc
+                      ? { background: OX.yellow, color: OX.ink }
+                      : { color: OX.muted }
                   }
                   onClick={() => setLocale(loc)}
                 >
@@ -749,43 +888,66 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
             </div>
           )}
 
-          {tableOrdering && (
+          {/* Walk-in / table — center control in mockup spirit */}
+          {tableOrdering ? (
             <select
               value={tableId}
               onChange={(e) => setTableId(e.target.value)}
-              className="min-h-10 rounded-md border border-black/15 bg-white px-2 text-sm"
+              className="min-h-11 min-w-[9rem] rounded-xl border-2 px-3 text-sm font-bold"
+              style={{
+                borderColor: OX.yellow,
+                background: OX.card,
+                color: "#fff",
+              }}
             >
-              <option value="">{t.walkIn}</option>
+              <option value="" className="bg-black">
+                {t.walkIn}
+              </option>
               {tables.map((tb) => (
-                <option key={tb.id} value={tb.id}>
-                  {t.table}:{" "}
-                  {pickLocalized(locale, tb.labelAr, tb.label)}
+                <option key={tb.id} value={tb.id} className="bg-black">
+                  {t.table}: {pickLocalized(locale, tb.labelAr, tb.label)}
                 </option>
               ))}
             </select>
+          ) : (
+            <span
+              className="flex min-h-11 items-center rounded-xl border-2 px-4 text-sm font-bold"
+              style={{ borderColor: OX.yellow, color: OX.yellow }}
+            >
+              {t.walkIn}
+            </span>
           )}
 
-          <Link
-            href="/dashboard"
-            className="min-h-10 rounded-md border border-black/15 bg-white px-3 text-xs font-medium leading-10"
-          >
-            {t.back}
-          </Link>
+          {held.length > 0 && (
+            <button
+              type="button"
+              onClick={() => resumeHeld(held[held.length - 1].id)}
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
+              style={{ borderColor: OX.yellow, color: OX.yellow }}
+            >
+              {t.held} ×{held.length}
+            </button>
+          )}
         </div>
       </header>
 
+      {/* Ops strips — compact, keep features */}
       {shiftOpen !== null && (
         <div
-          className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 px-3 py-2 sm:px-4"
-          style={{ background: shiftOpen ? `${accent}22` : "#fff8f0" }}
+          className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 sm:px-5"
+          style={{
+            borderColor: OX.line,
+            background: shiftOpen ? "rgba(250,207,28,0.08)" : "rgba(255,120,0,0.1)",
+          }}
         >
-          <p className="text-xs font-medium sm:text-sm">
+          <p className="text-xs" style={{ color: OX.muted }}>
             {shiftOpen ? t.shiftOpen : t.shiftClosed}
           </p>
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard/shifts"
-              className="text-[11px] opacity-50 underline"
+              className="text-[11px] underline"
+              style={{ color: OX.muted }}
             >
               {locale === "ar" ? "التفاصيل" : "Details"}
             </Link>
@@ -793,11 +955,11 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               type="button"
               disabled={shiftBusy}
               onClick={() => toggleShift(shiftOpen ? "close" : "open")}
-              className="min-h-9 rounded-md border border-black/15 bg-white px-3 text-xs font-bold disabled:opacity-40"
+              className="min-h-8 rounded-md px-3 text-xs font-bold disabled:opacity-40"
               style={
                 shiftOpen
-                  ? undefined
-                  : { background: primary, color: "#fff", borderColor: primary }
+                  ? { border: `1px solid ${OX.line}`, color: "#fff" }
+                  : { background: OX.yellow, color: OX.ink }
               }
             >
               {shiftBusy ? "…" : shiftOpen ? t.closeShift : t.openShift}
@@ -808,12 +970,13 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
 
       {(!online || pending.length > 0 || usingCache) && (
         <div
-          className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 px-3 py-2 sm:px-4"
+          className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 sm:px-5"
           style={{
-            background: online ? "#eef6ff" : "#fff3e0",
+            borderColor: OX.line,
+            background: online ? "rgba(80,140,255,0.12)" : "rgba(255,160,0,0.15)",
           }}
         >
-          <p className="text-xs font-medium sm:text-sm">
+          <p className="text-xs" style={{ color: OX.muted }}>
             {online ? t.online : t.offline}
             {usingCache ? ` · ${t.offlineCatalog}` : ""}
             {pending.length > 0
@@ -825,7 +988,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               type="button"
               disabled={syncing}
               onClick={() => syncQueue().then(() => load())}
-              className="min-h-9 rounded-md border border-black/15 bg-white px-3 text-xs font-bold disabled:opacity-40"
+              className="min-h-8 rounded-md px-3 text-xs font-bold disabled:opacity-40"
+              style={{ background: OX.yellow, color: OX.ink }}
             >
               {syncing ? t.syncing : t.syncNow}
             </button>
@@ -834,25 +998,27 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       )}
 
       {pending.some((p) => p.status === "failed") && (
-        <div className="space-y-2 border-b border-red-200 bg-red-50 px-3 py-2 sm:px-4">
-          <p className="text-xs font-semibold text-red-800">{t.syncFailed}</p>
+        <div
+          className="space-y-2 border-b px-3 py-2 sm:px-5"
+          style={{ borderColor: "rgba(248,113,113,0.4)", background: "rgba(127,29,29,0.35)" }}
+        >
+          <p className="text-xs font-semibold text-red-200">{t.syncFailed}</p>
           {pending
             .filter((p) => p.status === "failed")
             .map((p) => (
               <div
                 key={p.localId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-white px-2 py-1.5"
+                className="flex flex-wrap items-center justify-between gap-2"
               >
-                <div className="min-w-0 text-xs">
-                  <p className="font-bold">{p.localCode}</p>
-                  <p className="truncate text-red-700 opacity-90">
-                    {p.lastError || t.syncFailed}
-                  </p>
-                  <p className="opacity-50">
+                <div className="min-w-0 text-[11px] text-red-100/90">
+                  <p className="font-mono font-bold">{p.localCode}</p>
+                  <p className="opacity-70">
                     {formatPrice(p.total, brand.currency, locale)} ·{" "}
-                    {p.lines.reduce((s, l) => s + l.qty, 0)}{" "}
-                    {locale === "ar" ? "قطعة" : "items"}
+                    {p.lines.reduce((s, l) => s + l.qty, 0)} {t.items}
                   </p>
+                  {p.lastError ? (
+                    <p className="opacity-60">{p.lastError}</p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
@@ -863,14 +1029,15 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                         syncQueue(p.localId).then(() => load())
                       )
                     }
-                    className="min-h-8 rounded-md border border-black/15 bg-white px-2 text-[11px] font-bold disabled:opacity-40"
+                    className="min-h-8 rounded-md px-2 text-[11px] font-bold disabled:opacity-40"
+                    style={{ background: OX.yellow, color: OX.ink }}
                   >
                     {t.retry}
                   </button>
                   <button
                     type="button"
                     onClick={() => discardPending(p.localId)}
-                    className="min-h-8 rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-bold text-red-800"
+                    className="min-h-8 rounded-md border border-red-400/40 px-2 text-[11px] font-bold text-red-200"
                   >
                     {t.discard}
                   </button>
@@ -881,15 +1048,20 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       )}
 
       {showInstallHint && !pending.some((p) => p.status === "failed") && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 bg-white px-3 py-2 sm:px-4">
-          <p className="text-xs opacity-70">{t.installHint}</p>
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 sm:px-5"
+          style={{ borderColor: OX.line }}
+        >
+          <p className="text-xs" style={{ color: OX.muted }}>
+            {t.installHint}
+          </p>
           <div className="flex gap-1">
             {installEvent && (
               <button
                 type="button"
                 onClick={() => installEvent.prompt()}
-                className="min-h-8 rounded-md px-3 text-[11px] font-bold text-white"
-                style={{ background: primary }}
+                className="min-h-8 rounded-md px-3 text-[11px] font-bold"
+                style={{ background: OX.yellow, color: OX.ink }}
               >
                 {t.install}
               </button>
@@ -904,7 +1076,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                   /* ignore */
                 }
               }}
-              className="min-h-8 rounded-md border border-black/15 px-2 text-[11px]"
+              className="min-h-8 px-2 text-[11px]"
+              style={{ color: OX.muted }}
             >
               ✕
             </button>
@@ -912,137 +1085,259 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-0 lg:flex-row">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-1 flex-col lg:flex-row lg:min-h-0">
         {/* Catalog */}
         <section className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            <Chip
+            <CatChip
               active={categoryId === "all"}
-              primary={primary}
+              kind="all"
               onClick={() => setCategoryId("all")}
             >
               {t.all}
-            </Chip>
+            </CatChip>
             {leafCategories.map((c) => (
-              <Chip
+              <CatChip
                 key={c.id}
                 active={categoryId === c.id}
-                primary={primary}
+                kind={categoryIconKind(c.name, c.nameEn)}
                 onClick={() => setCategoryId(c.id)}
               >
                 {pickLocalized(locale, c.name, c.nameEn)}
-              </Chip>
+              </CatChip>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-            {visibleProducts.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                disabled={p.outOfStock}
-                onClick={() => addProduct(p)}
-                className={cn(
-                  "flex min-h-[5.5rem] flex-col items-start justify-between rounded-xl border border-black/10 bg-white p-3 text-start shadow-sm transition active:scale-[0.98]",
-                  p.outOfStock && "cursor-not-allowed opacity-45"
-                )}
-              >
-                <span className="line-clamp-2 text-sm font-semibold">
-                  {pickLocalized(locale, p.name, p.nameEn)}
-                </span>
-                <span className="mt-auto flex w-full items-end justify-between gap-1 pt-2">
-                  <span className="text-sm font-bold" style={{ color: primary }}>
-                    {formatPrice(p.price, brand.currency, locale)}
-                  </span>
-                  {typeof p.stockQty === "number" && (
-                    <span className="text-[10px] text-black/40">
-                      {p.outOfStock
-                        ? locale === "ar"
-                          ? "نفد"
-                          : "0"
-                        : `×${p.stockQty}`}
-                    </span>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+            {visibleProducts.map((p) => {
+              const img = mediaUrl(p.image);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={p.outOfStock}
+                  onClick={() => addProduct(p)}
+                  className={cn(
+                    "flex flex-col overflow-hidden rounded-2xl text-start transition active:scale-[0.98]",
+                    p.outOfStock && "cursor-not-allowed opacity-40"
                   )}
-                </span>
-              </button>
-            ))}
+                  style={{ background: OX.card }}
+                >
+                  <div
+                    className="relative aspect-[4/3] w-full overflow-hidden"
+                    style={{ background: "#222" }}
+                  >
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-full w-full items-center justify-center text-3xl font-black opacity-30"
+                        style={{ color: OX.yellow }}
+                      >
+                        {pickLocalized(locale, p.name, p.nameEn).slice(0, 1)}
+                      </div>
+                    )}
+                    {typeof p.stockQty === "number" && (
+                      <span
+                        className="absolute bottom-1 end-1 rounded px-1.5 py-0.5 text-[10px] font-bold"
+                        style={{
+                          background: "rgba(0,0,0,0.65)",
+                          color: p.outOfStock ? "#f87171" : OX.muted,
+                        }}
+                      >
+                        {p.outOfStock
+                          ? locale === "ar"
+                            ? "نفد"
+                            : "0"
+                          : `×${p.stockQty}`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-1 p-2.5">
+                    <span className="line-clamp-2 text-sm font-semibold text-white">
+                      {pickLocalized(locale, p.name, p.nameEn)}
+                    </span>
+                    <span
+                      className="mt-auto text-sm font-bold"
+                      style={{ color: OX.yellow }}
+                    >
+                      {formatPrice(p.price, brand.currency, locale)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {/* Ticket */}
         <aside
-          className="flex w-full flex-col border-t border-black/10 bg-white lg:w-[380px] lg:border-s lg:border-t-0"
-          style={{ borderColor: "rgba(0,0,0,0.1)" }}
+          className="flex w-full flex-col border-t lg:w-[380px] lg:border-s lg:border-t-0"
+          style={{ borderColor: OX.line, background: OX.panel }}
         >
-          <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
-            <h2 className="font-bold" style={{ color: primary }}>
-              {t.ticket}
-            </h2>
+          <div
+            className="flex items-center justify-between border-b px-4 py-3"
+            style={{ borderColor: OX.line }}
+          >
+            <h2 className="text-lg font-bold text-white">{t.ticket}</h2>
             {lines.length > 0 && (
               <button
                 type="button"
-                className="text-xs opacity-50 underline"
+                className="flex items-center gap-1 text-xs font-semibold"
+                style={{ color: OX.yellow }}
                 onClick={() => setLines([])}
               >
+                <TrashIcon />
                 {t.clear}
               </button>
             )}
           </div>
 
-          <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+          <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
             {lines.length === 0 && (
-              <p className="py-8 text-center text-sm opacity-40">{t.empty}</p>
-            )}
-            {lines.map((l) => (
-              <div
-                key={l.itemId}
-                className="flex items-center gap-2 rounded-lg border border-black/5 bg-[var(--brand-surface)] px-2 py-2"
-                style={{ background: surface }}
+              <p
+                className="py-10 text-center text-sm"
+                style={{ color: OX.muted }}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {pickLocalized(locale, l.name, l.nameEn)}
-                  </p>
-                  <p className="text-xs opacity-50">
-                    {formatPrice(l.unitPrice * l.qty, brand.currency, locale)}
-                  </p>
+                {t.empty}
+              </p>
+            )}
+            {lines.map((l) => {
+              const img = mediaUrl(l.image);
+              return (
+                <div
+                  key={l.itemId}
+                  className="flex items-center gap-2.5 rounded-xl px-2 py-2"
+                  style={{ background: OX.card }}
+                >
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                    style={{ background: "#2a2a2a" }}
+                  >
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="text-xs font-bold"
+                        style={{ color: OX.yellow }}
+                      >
+                        {pickLocalized(locale, l.name, l.nameEn).slice(0, 1)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">
+                      {pickLocalized(locale, l.name, l.nameEn)}
+                    </p>
+                    <p
+                      className="text-xs font-semibold"
+                      style={{ color: OX.yellow }}
+                    >
+                      {formatPrice(l.unitPrice * l.qty, brand.currency, locale)}
+                    </p>
+                  </div>
+                  <div
+                    className="flex items-center overflow-hidden rounded-lg border"
+                    style={{ borderColor: OX.line }}
+                  >
+                    <QtyBtn onClick={() => setQty(l.itemId, l.qty - 1)}>−</QtyBtn>
+                    <span className="min-w-7 text-center text-sm font-bold">
+                      {l.qty}
+                    </span>
+                    <QtyBtn onClick={() => setQty(l.itemId, l.qty + 1)}>+</QtyBtn>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <QtyBtn onClick={() => setQty(l.itemId, l.qty - 1)}>−</QtyBtn>
-                  <span className="min-w-6 text-center text-sm font-bold">
-                    {l.qty}
-                  </span>
-                  <QtyBtn onClick={() => setQty(l.itemId, l.qty + 1)}>+</QtyBtn>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="space-y-3 border-t border-black/10 p-4">
+          <div
+            className="space-y-3 border-t p-4"
+            style={{ borderColor: OX.line }}
+          >
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={t.note}
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/30"
+              style={{ borderColor: OX.line }}
             />
-            <div className="flex items-end justify-between">
-              <span className="text-sm opacity-60">{t.total}</span>
-              <span className="text-xl font-extrabold" style={{ color: primary }}>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-white">
+                {t.payment}
+              </p>
+              <div className="flex flex-col gap-2">
+                {(
+                  [
+                    ["cash", t.cash, <WalletIcon key="w" />],
+                    ["card", t.card, <CardIcon key="c" />],
+                    ["other", t.other, <DotsIcon key="d" />],
+                  ] as const
+                ).map(([m, label, icon]) => {
+                  const selected = payMethod === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={!lines.length || closing}
+                      onClick={() => {
+                        setPayMethod(m);
+                        void closeTicket(m);
+                      }}
+                      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold disabled:opacity-35"
+                      style={
+                        selected
+                          ? { background: OX.yellow, color: OX.ink }
+                          : {
+                              background: "transparent",
+                              color: "#fff",
+                              border: `1.5px solid ${OX.line}`,
+                            }
+                      }
+                    >
+                      {icon}
+                      {closing && payMethod === m ? t.closing : label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-end justify-between pt-1">
+              <span className="text-sm" style={{ color: OX.muted }}>
+                {t.total}
+                {itemCount > 0 ? ` (${itemCount} ${t.items})` : ""}
+              </span>
+              <span
+                className="text-2xl font-extrabold"
+                style={{ color: OX.yellow }}
+              >
                 {formatPrice(total, brand.currency, locale)}
               </span>
             </div>
 
             {payError && (
-              <p className="rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">
+              <p className="rounded-md bg-red-500/20 px-2 py-1.5 text-xs text-red-200">
                 {payError}
               </p>
             )}
             {lastCode && (
               <div
-                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5"
-                style={{ background: `${accent}33` }}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5"
+                style={{ background: "rgba(250,207,28,0.15)" }}
               >
-                <p className="text-xs font-medium">
+                <p className="text-xs font-medium" style={{ color: OX.yellow }}>
                   {lastCode.startsWith("OFF-") ? t.queued : t.closed} — {t.code}{" "}
                   {lastCode}
                 </p>
@@ -1051,14 +1346,16 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                     <button
                       type="button"
                       onClick={printLastReceipt}
-                      className="min-h-8 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
+                      className="min-h-8 rounded-md border px-2.5 text-[11px] font-bold text-white"
+                      style={{ borderColor: OX.line }}
                     >
                       {t.print}
                     </button>
                     <button
                       type="button"
                       onClick={printLastKitchen}
-                      className="min-h-8 rounded-md border border-black/15 bg-white px-2.5 text-[11px] font-bold"
+                      className="min-h-8 rounded-md border px-2.5 text-[11px] font-bold text-white"
+                      style={{ borderColor: OX.line }}
                     >
                       {t.kitchen}
                     </button>
@@ -1066,7 +1363,8 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                       type="button"
                       onClick={downloadLastEscPos}
                       title="ESC/POS text"
-                      className="min-h-8 rounded-md border border-black/15 bg-white px-2 text-[10px] font-bold opacity-70"
+                      className="min-h-8 rounded-md border px-2 text-[10px] font-bold text-white/70"
+                      style={{ borderColor: OX.line }}
                     >
                       {t.escPos}
                     </button>
@@ -1074,37 +1372,66 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                 )}
               </div>
             )}
-
-            <div className="grid grid-cols-3 gap-2">
-              {(["cash", "card", "other"] as PaymentMethod[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  disabled={!lines.length || closing}
-                  onClick={() => closeTicket(m)}
-                  className="min-h-12 rounded-lg text-sm font-bold text-white disabled:opacity-40"
-                  style={{ background: primary }}
-                >
-                  {closing ? "…" : t[m]}
-                </button>
-              ))}
-            </div>
-            <p className="text-center text-[10px] opacity-30">{t.powered}</p>
           </div>
         </aside>
       </div>
+
+      {/* Footer — Back · OBELIX Menu · Hold · Powered by OBELIX */}
+      <footer
+        className="sticky bottom-0 border-t px-3 py-2 sm:px-5"
+        style={{ borderColor: OX.line, background: OX.panel }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/dashboard"
+            className="flex min-h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold text-white"
+            style={{ borderColor: OX.line }}
+          >
+            <span aria-hidden>{dir === "rtl" ? "→" : "←"}</span>
+            {t.back}
+          </Link>
+
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex items-center gap-2">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-black"
+                style={{ background: OX.yellow, color: OX.ink }}
+              >
+                OX
+              </span>
+              <span className="text-sm font-bold tracking-wide">
+                <span style={{ color: OX.yellow }}>OBELIX</span>{" "}
+                <span className="text-white">Menu</span>
+              </span>
+            </div>
+            <p className="text-[10px]" style={{ color: OX.muted }}>
+              {t.poweredBy}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={holdTicket}
+            className="flex min-h-11 items-center gap-2 rounded-xl border-2 px-4 text-sm font-bold"
+            style={{ borderColor: OX.yellow, color: OX.yellow }}
+          >
+            <HoldIcon />
+            {lines.length ? t.hold : held.length ? t.resume : t.hold}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function Chip({
+function CatChip({
   active,
-  primary,
+  kind,
   onClick,
   children,
 }: {
   active: boolean;
-  primary: string;
+  kind: "all" | "coffee" | "food" | "drink" | "dessert" | "other";
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -1112,14 +1439,68 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold",
-        active ? "text-white" : "border border-black/15 bg-white"
-      )}
-      style={active ? { background: primary } : undefined}
+      className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold"
+      style={
+        active
+          ? { background: OX.yellow, color: OX.ink }
+          : {
+              background: OX.card,
+              color: "#fff",
+              border: `1px solid ${OX.line}`,
+            }
+      }
     >
+      <CatGlyph kind={kind} />
       {children}
     </button>
+  );
+}
+
+function CatGlyph({
+  kind,
+}: {
+  kind: "all" | "coffee" | "food" | "drink" | "dessert" | "other";
+}) {
+  const common = "h-3.5 w-3.5";
+  if (kind === "all") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" />
+      </svg>
+    );
+  }
+  if (kind === "coffee") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M4 19h12a4 4 0 0 0 0-8h-1V7H4v12zm14-6a2 2 0 1 1 0 4h-1v-4h1zM7 3h2v2H7V3zm3 1h2v2h-2V4zm3-1h2v2h-2V3z" />
+      </svg>
+    );
+  }
+  if (kind === "food") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C8 2 5 6 5 10c0 5 4 8 7 11 3-3 7-6 7-11 0-4-3-8-7-8zm0 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" />
+      </svg>
+    );
+  }
+  if (kind === "drink") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 2h10l-1 3H8L7 2zm1 5h8l1.5 13H6.5L8 7z" />
+      </svg>
+    );
+  }
+  if (kind === "dessert") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3c-3 0-5 2-5 5 0 1 .3 2 .8 3H5l1 10h12l1-10h-2.8c.5-1 .8-2 .8-3 0-3-2-5-5-5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={common} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="4" />
+    </svg>
   );
 }
 
@@ -1134,9 +1515,51 @@ function QtyBtn({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-black/15 bg-white text-base font-bold"
+      className="flex h-9 w-9 items-center justify-center text-base font-bold text-white"
     >
       {children}
     </button>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 7a3 3 0 0 1 3-3h12a2 2 0 0 1 2 2v1H6a1 1 0 0 0 0 2h14v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7zm14 7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+    </svg>
+  );
+}
+
+function CardIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zm0 3h18v2H3V9z" />
+    </svg>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="6" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="18" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function HoldIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 3h9l3 3v15H6V3zm2 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z" />
+    </svg>
   );
 }
