@@ -20,7 +20,10 @@ const nextConfig: NextConfig = {
             value: "private, no-store, no-cache, max-age=0, must-revalidate",
           },
           { key: "CDN-Cache-Control", value: "no-store" },
+          { key: "Cloudflare-CDN-Cache-Control", value: "no-store" },
+          { key: "Surrogate-Control", value: "no-store" },
           { key: "Pragma", value: "no-cache" },
+          { key: "Vary", value: "Cookie" },
         ],
       },
       {
@@ -30,6 +33,8 @@ const nextConfig: NextConfig = {
             key: "Cache-Control",
             value: "private, no-store, no-cache, max-age=0, must-revalidate",
           },
+          { key: "CDN-Cache-Control", value: "no-store" },
+          { key: "Pragma", value: "no-cache" },
         ],
       },
     ];
