@@ -35,6 +35,8 @@ export type OrderingFeatures = {
   inventoryEnabled: boolean;
   /** Multiple branches — shared catalog, per-branch stock & price overrides */
   multiBranchEnabled: boolean;
+  /** Purchasing / suppliers / light accounting — independent of orderFromMenu */
+  purchasingEnabled: boolean;
   /** Soft settings (also overridable in ordering.json) */
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
@@ -58,6 +60,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   staffAccountsEnabled: false,
   inventoryEnabled: false,
   multiBranchEnabled: false,
+  purchasingEnabled: false,
   guestNoteEnabled: true,
   maxItemsPerOrder: 50,
   enabled: false,
@@ -90,6 +93,7 @@ export function normalizeOrderingFeatures(
   merged.staffAccountsEnabled = Boolean(merged.staffAccountsEnabled);
   merged.inventoryEnabled = Boolean(merged.inventoryEnabled);
   merged.multiBranchEnabled = Boolean(merged.multiBranchEnabled);
+  merged.purchasingEnabled = Boolean(merged.purchasingEnabled);
   merged.guestNoteEnabled = merged.guestNoteEnabled !== false;
   const max = Number(merged.maxItemsPerOrder);
   merged.maxItemsPerOrder =
@@ -149,4 +153,11 @@ export function hasMultiBranch(
 ): boolean {
   const f = normalizeOrderingFeatures(ext);
   return f.orderFromMenu && f.multiBranchEnabled;
+}
+
+/** Independent of POS / order-from-menu master. */
+export function hasPurchasing(
+  ext?: Partial<OrderingFeatures> | null
+): boolean {
+  return normalizeOrderingFeatures(ext).purchasingEnabled;
 }

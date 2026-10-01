@@ -232,6 +232,11 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     "utf8"
   );
   await fs.writeFile(
+    path.join(packageDir, "data", "purchasing.json"),
+    JSON.stringify({ suppliers: [], purchases: [], payments: [] }, null, 2),
+    "utf8"
+  );
+  await fs.writeFile(
     path.join(packageDir, ".env.example"),
     `DASHBOARD_PASSWORD=${client.dashboardPassword}\nPORT=3000\n`,
     "utf8"

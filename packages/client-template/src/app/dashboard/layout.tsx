@@ -64,6 +64,9 @@ export default async function DashboardLayout({
             {isOwner && features.inventoryEnabled && features.orderFromMenu && (
               <DashLink href="/dashboard/inventory">Inventory</DashLink>
             )}
+            {isOwner && features.purchasingEnabled && (
+              <DashLink href="/dashboard/purchasing">Purchasing</DashLink>
+            )}
             {isOwner && features.multiBranchEnabled && features.orderFromMenu && (
               <DashLink href="/dashboard/branches">Branches</DashLink>
             )}

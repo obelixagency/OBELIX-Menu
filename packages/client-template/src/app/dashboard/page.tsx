@@ -64,6 +64,11 @@ export default async function DashboardHome() {
             <Button variant="outline">المبيعات</Button>
           </Link>
         )}
+        {brand.extensions?.ordering?.purchasingEnabled && (
+          <Link href="/dashboard/purchasing">
+            <Button variant="outline">مشتريات</Button>
+          </Link>
+        )}
         <Link href="/" target="_blank">
           <Button variant="outline">فتح المنيو</Button>
         </Link>

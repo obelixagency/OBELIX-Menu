@@ -170,6 +170,10 @@ export const dictionaries = {
           label: "Multi-branch",
           hint: "Shared menu catalog with per-branch stock and optional price overrides. Manage branches on the client dashboard.",
         },
+        purchasingEnabled: {
+          label: "Purchasing & suppliers",
+          hint: "Independent of POS/menu. Client dashboard: suppliers, purchase orders, receiving into stock, supplier balances and a simple sales vs purchases view. Works with POS only or alongside other flags.",
+        },
       },
     },
   },
@@ -339,6 +343,10 @@ export const dictionaries = {
         multiBranchEnabled: {
           label: "فروع متعددة",
           hint: "منيو مشترك مع مخزون وسعر اختياري لكل فرع. إدارة الفروع من داشبورد العميل.",
+        },
+        purchasingEnabled: {
+          label: "مشتريات وموردين",
+          hint: "خيار مستقل عن POS والمنيو. داشبورد العميل: موردين، أوامر شراء، استلام للمخزون، أرصدة موردين، ومقارنة مبيعات مقابل مشتريات. ينفع مع POS لوحده أو مع باقي الميزات.",
         },
       },
     },

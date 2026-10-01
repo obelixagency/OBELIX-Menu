@@ -27,6 +27,7 @@
       "staffAccountsEnabled": true,
       "inventoryEnabled": true,
       "multiBranchEnabled": true,
+      "purchasingEnabled": true,
       "guestNoteEnabled": true,
       "maxItemsPerOrder": 50,
       "enabled": true,

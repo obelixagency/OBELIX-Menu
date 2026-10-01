@@ -263,6 +263,43 @@ export async function restoreStock(
 }
 
 /**
+ * Add qty on goods received. Always writes inventory.json (creates the file
+ * if missing). Does not require the inventory agency flag — POS/menu deduct
+ * still no-ops until inventoryEnabled is on.
+ */
+export async function increaseStock(
+  lines: { productId: string; qty: number }[],
+  branchId?: string
+): Promise<void> {
+  const bid = branchId || (await getDefaultBranchId());
+  const store = await ensureStore();
+  const map = new Map(
+    store.items.map((i) => [itemKey(i.branchId, i.productId), i])
+  );
+  const now = new Date().toISOString();
+  for (const line of lines) {
+    const q = Math.floor(Number(line.qty) || 0);
+    if (!line.productId || q < 1) continue;
+    const k = itemKey(bid, line.productId);
+    let row = map.get(k);
+    if (!row) {
+      row = {
+        productId: line.productId,
+        branchId: bid,
+        qty: 0,
+        lowAt: DEFAULT_LOW,
+        updatedAt: now,
+      };
+      map.set(k, row);
+    }
+    row.qty += q;
+    row.updatedAt = now;
+  }
+  store.items = [...map.values()];
+  await saveStore(store);
+}
+
+/**
  * Stock snapshot + sold qty in a period (from non-cancelled orders).
  */
 export async function buildInventoryReport(opts?: {
