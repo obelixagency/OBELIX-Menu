@@ -57,15 +57,16 @@ export function DashboardChrome({
     setMoreOpen(false);
   }, [pathname]);
 
+  const groups = useMemo(
+    () => visibleGroups(flags, isOwner, role),
+    [flags, isOwner, role]
+  );
+
   if (pathname.startsWith("/dashboard/login")) {
     return <>{children}</>;
   }
 
   const dir = dirFor(locale);
-  const groups = useMemo(
-    () => visibleGroups(flags, isOwner, role),
-    [flags, isOwner, role]
-  );
   const tabs = mobilePrimaryTabs(flags, locale);
   const frozenLabel = locale === "en" ? "as-is" : "لا يُغيَّر";
 
