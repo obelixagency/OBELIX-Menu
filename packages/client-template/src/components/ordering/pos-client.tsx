@@ -16,6 +16,7 @@ import {
   priceAfterDiscount,
 } from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
+import { moneyTotals } from "@/lib/commerce";
 import {
   downloadEscPosFile,
   printKitchenTicket,
@@ -80,6 +81,9 @@ type BrandInfo = {
   colors: { primary: string; accent: string; surface: string };
   currency: string;
   languages: LanguageMode;
+  taxPercent?: number;
+  taxInclusive?: boolean;
+  taxNumber?: string | null;
 };
 
 type TicketLine = {
@@ -242,6 +246,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     method: PaymentMethod;
     lines: TicketLine[];
     total: number;
+    tax?: number;
+    taxInclusive?: boolean;
+    taxNumber?: string | null;
     whereLabel: string;
     note?: string;
   } | null>(null);
@@ -524,6 +531,15 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     [lines]
   );
 
+  const priced = useMemo(
+    () =>
+      moneyTotals(total, {
+        taxPercent: brand?.taxPercent,
+        taxInclusive: brand?.taxInclusive !== false,
+      }),
+    [total, brand?.taxPercent, brand?.taxInclusive]
+  );
+
   const itemCount = useMemo(
     () => lines.reduce((s, l) => s + l.qty, 0),
     [lines]
@@ -673,7 +689,12 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     setClosing(true);
     setPayError(null);
     setPayMethod(method);
-    const snapshot = { lines: [...lines], total };
+    const snapshot = {
+      lines: [...lines],
+      total: priced.grandTotal,
+      tax: priced.tax,
+      taxInclusive: priced.taxInclusive,
+    };
     const whereLabel =
       tables.find((tb) => tb.id === tableId)?.label ||
       (locale === "ar" ? "حضور" : "walk-in");
@@ -715,6 +736,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         method,
         lines: snapshot.lines,
         total: snapshot.total,
+        tax: snapshot.tax,
+        taxInclusive: snapshot.taxInclusive,
+        taxNumber: brand?.taxNumber,
         whereLabel,
         note: noteSnap,
       });
@@ -744,6 +768,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           method,
           lines: snapshot.lines,
           total: snapshot.total,
+          tax: snapshot.tax,
+          taxInclusive: snapshot.taxInclusive,
+          taxNumber: brand?.taxNumber,
           whereLabel,
           note: noteSnap,
         });
@@ -804,6 +831,9 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       currency: brand.currency,
       method: lastReceipt.method,
       total: lastReceipt.total,
+      tax: lastReceipt.tax,
+      taxInclusive: lastReceipt.taxInclusive,
+      taxNumber: lastReceipt.taxNumber || brand.taxNumber,
       locale,
       dir,
       brand: clientPrintBrand(),
@@ -1390,9 +1420,20 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                 className="text-2xl font-extrabold"
                 style={{ color: OX.yellow }}
               >
-                {formatPrice(total, brand.currency, locale)}
+                {formatPrice(priced.grandTotal, brand.currency, locale)}
               </span>
             </div>
+            {priced.tax > 0 && (
+              <p className="text-[11px]" style={{ color: OX.muted }}>
+                {priced.taxInclusive
+                  ? locale === "ar"
+                    ? `شامل ضريبة ${formatPrice(priced.tax, brand.currency, locale)}`
+                    : `Incl. tax ${formatPrice(priced.tax, brand.currency, locale)}`
+                  : locale === "ar"
+                    ? `ضريبة ${formatPrice(priced.tax, brand.currency, locale)}`
+                    : `Tax ${formatPrice(priced.tax, brand.currency, locale)}`}
+              </p>
+            )}
 
             {payError && (
               <p className="rounded-md bg-red-500/20 px-2 py-1.5 text-xs text-red-200">

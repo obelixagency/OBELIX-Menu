@@ -130,9 +130,11 @@ export function OrdersDashboardClient({ currency }: { currency: string }) {
                   {new Date(o.createdAt).toLocaleString("ar-EG")} ·{" "}
                   {o.channel === "delivery"
                     ? "توصيل"
-                    : o.channel === "pos"
-                      ? "POS"
-                      : "طاولة"}
+                    : o.channel === "pickup"
+                      ? "استلام"
+                      : o.channel === "pos"
+                        ? "POS"
+                        : "طاولة"}
                   {o.tableLabel ? ` · ${o.tableLabel}` : ""}
                   {o.channel === "pos" && !o.tableLabel ? " · walk-in" : ""}
                   {o.delivery ? ` · ${o.delivery.phone}` : ""}

@@ -28,6 +28,9 @@ const DEFAULT_BRAND: BrandConfig = {
   menuBackgroundUrl: null,
   slogan: null,
   sloganEn: null,
+  taxPercent: 0,
+  taxInclusive: true,
+  taxNumber: null,
   extensions: {
     ordering: DEFAULT_ORDERING_FEATURES,
     payments: normalizePayments(null),
@@ -43,6 +46,9 @@ export async function readBrand(): Promise<BrandConfig> {
       ...parsed,
       languages: normalizeLanguages(parsed.languages),
       colors: { ...DEFAULT_BRAND.colors, ...parsed.colors },
+      taxPercent: Math.max(0, Math.min(50, Number(parsed.taxPercent) || 0)),
+      taxInclusive: parsed.taxInclusive !== false,
+      taxNumber: parsed.taxNumber ? String(parsed.taxNumber) : null,
       extensions: {
         ordering: normalizeOrderingFeatures(parsed.extensions?.ordering),
         payments: normalizePayments(parsed.extensions?.payments),

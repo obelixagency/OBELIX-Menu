@@ -13,6 +13,7 @@ import {
   type OptionSelection,
   type Product,
 } from "@/lib/types";
+import { PREP_PRESETS, prepLabel } from "@/lib/commerce";
 import { pickLocalized, type Locale } from "@/lib/i18n";
 
 export function OptionPicker({
@@ -28,9 +29,10 @@ export function OptionPicker({
   locale: Locale;
   currency: string;
   onCancel: () => void;
-  onConfirm: (selections: OptionSelection[]) => void;
+  onConfirm: (selections: OptionSelection[], prep: string[]) => void;
 }) {
   const groups = product.optionGroups || [];
+  const [prep, setPrep] = useState<string[]>([]);
   const [sel, setSel] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const g of groups) {
@@ -101,6 +103,36 @@ export function OptionPicker({
             </div>
           </div>
         ))}
+        {product.prepEnabled && (
+          <div className="mt-3">
+            <p className="mb-1 text-xs font-semibold text-[var(--brand-muted)]">
+              {locale === "en" ? "Prep" : "تحضير"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {PREP_PRESETS.map((p) => {
+                const on = prep.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() =>
+                      setPrep((s) =>
+                        on ? s.filter((x) => x !== p.id) : [...s, p.id]
+                      )
+                    }
+                    className={`min-h-10 rounded-full px-3 text-xs font-semibold ${
+                      on
+                        ? "bg-[var(--brand-accent)] text-black"
+                        : "border border-[var(--brand-line)]"
+                    }`}
+                  >
+                    {prepLabel(p.id, locale)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="mt-4 flex items-center justify-between">
           <div>
             {pricing.hasDiscount && (
@@ -119,7 +151,7 @@ export function OptionPicker({
             <Button
               type="button"
               disabled={missing.length > 0}
-              onClick={() => onConfirm(selections)}
+              onClick={() => onConfirm(selections, prep)}
             >
               {locale === "en" ? "Add" : "أضف"}
             </Button>

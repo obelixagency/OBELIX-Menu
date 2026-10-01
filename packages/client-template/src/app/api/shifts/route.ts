@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       const shift = await closeShift({
         closedBy: who,
         note: body.note,
+        countedCash: body.countedCash,
       });
       return NextResponse.json({ shift }, { headers: noStoreHeaders() });
     }

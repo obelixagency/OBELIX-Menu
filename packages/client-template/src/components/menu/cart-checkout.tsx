@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n";
 import { useCart } from "./cart-context";
+import { withBasePath } from "@/lib/base-path";
+import { moneyTotals, type DeliveryArea } from "@/lib/commerce";
 
 type Table = {
   id: string;
@@ -20,14 +22,19 @@ type Zone = {
   active: boolean;
 };
 
+type Channel = "dine_in" | "delivery" | "pickup";
+
 type Props = {
   locale: Locale;
   currency: string;
   tableOrdering: boolean;
   delivery: boolean;
+  pickup?: boolean;
   zonesEnabled: boolean;
   guestNoteEnabled: boolean;
   branchId?: string;
+  taxPercent?: number;
+  taxInclusive?: boolean;
 };
 
 export function CartCheckout({
@@ -35,19 +42,25 @@ export function CartCheckout({
   currency,
   tableOrdering,
   delivery,
+  pickup = false,
   zonesEnabled,
   guestNoteEnabled,
   branchId,
+  taxPercent = 0,
+  taxInclusive = true,
 }: Props) {
   const cart = useCart();
   const router = useRouter();
   const ar = locale === "ar";
 
-  const [channel, setChannel] = useState<"dine_in" | "delivery" | null>(null);
+  const [channel, setChannel] = useState<Channel | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [areas, setAreas] = useState<DeliveryArea[]>([]);
+  const [minOrder, setMinOrder] = useState(0);
   const [zoneId, setZoneId] = useState("");
   const [tableId, setTableId] = useState("");
+  const [areaId, setAreaId] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
@@ -58,36 +71,55 @@ export function CartCheckout({
   const [step, setStep] = useState<"cart" | "checkout">("cart");
   const [payHint, setPayHint] = useState<string | null>(null);
 
+  const channelCount =
+    Number(tableOrdering) + Number(delivery) + Number(pickup);
+
   useEffect(() => {
     if (!cart.open) return;
-    fetch("/api/ordering/config?guest=1")
+    fetch(withBasePath("/api/ordering/config?guest=1"))
       .then((r) => r.json())
       .then((d) => {
         setTables(d.tables || []);
         setZones(d.zones || []);
+        setAreas((d.settings?.deliveryAreas || []).filter((a: DeliveryArea) => a.active));
+        setMinOrder(Number(d.settings?.deliveryMinOrder) || 0);
         const pay = d.payments;
         if (pay?.enabled && pay.provider && pay.provider !== "none") {
           setPayHint(
             ar
-              ? `الدفع الأونلاين (${pay.provider}) جاهز للربط — حالياً الدفع عند الاستلام / الكاشير.`
-              : `Online payment (${pay.provider}) slot reserved — pay on delivery / at cashier for now.`
+              ? `بوابة ${pay.provider} مختارة — لسه مفيش خصم أونلاين. الدفع عند الاستلام أو الفرع.`
+              : `${pay.provider} selected — not charging yet. Pay on delivery / at the branch.`
           );
-        } else {
-          setPayHint(null);
-        }
+        } else setPayHint(null);
       })
       .catch(() => {});
   }, [cart.open, ar]);
 
   useEffect(() => {
-    if (tableOrdering && !delivery) setChannel("dine_in");
-    else if (delivery && !tableOrdering) setChannel("delivery");
-  }, [tableOrdering, delivery]);
+    if (channelCount === 1) {
+      if (tableOrdering) setChannel("dine_in");
+      else if (delivery) setChannel("delivery");
+      else if (pickup) setChannel("pickup");
+    }
+  }, [tableOrdering, delivery, pickup, channelCount]);
 
   const filteredTables = useMemo(() => {
     if (!zonesEnabled || !zoneId) return tables;
     return tables.filter((t) => t.zoneId === zoneId);
   }, [tables, zonesEnabled, zoneId]);
+
+  const area = areas.find((a) => a.id === areaId);
+  const deliveryFee =
+    channel === "delivery" ? Number(area?.fee) || 0 : 0;
+  const priced = moneyTotals(cart.subtotal, {
+    deliveryFee,
+    taxPercent,
+    taxInclusive,
+  });
+  const belowMin =
+    channel === "delivery" &&
+    minOrder > 0 &&
+    cart.subtotal + 0.001 < minOrder;
 
   if (!cart.open) return null;
 
@@ -99,14 +131,22 @@ export function CartCheckout({
     }
     const ch =
       channel ||
-      (tableOrdering ? "dine_in" : delivery ? "delivery" : null);
+      (tableOrdering ? "dine_in" : delivery ? "delivery" : pickup ? "pickup" : null);
     if (!ch) {
       setError(ar ? "اختر نوع الطلب" : "Choose order type");
       return;
     }
+    if (ch === "delivery" && belowMin) {
+      setError(
+        ar
+          ? `الحد الأدنى للتوصيل ${minOrder}`
+          : `Minimum delivery order ${minOrder}`
+      );
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/orders", {
+      const res = await fetch(withBasePath("/api/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -115,13 +155,20 @@ export function CartCheckout({
           zoneId: ch === "dine_in" && zonesEnabled ? zoneId : undefined,
           delivery:
             ch === "delivery"
-              ? { phone, addressLine: address, notes: deliveryNotes }
+              ? {
+                  phone,
+                  addressLine: address,
+                  notes: deliveryNotes,
+                  areaId,
+                }
               : undefined,
+          pickup: ch === "pickup" ? { phone } : undefined,
           guestNote: guestNoteEnabled ? guestNote : undefined,
           lines: cart.lines.map((l) => ({
             itemId: l.itemId,
             qty: l.qty,
             options: l.options || [],
+            prep: l.prep || [],
           })),
           website: honeypot,
           branchId: branchId || undefined,
@@ -217,18 +264,29 @@ export function CartCheckout({
 
           {step === "checkout" && (
             <div className="space-y-4 text-sm">
-              {tableOrdering && delivery && (
-                <div className="flex gap-2">
-                  <ChannelBtn
-                    active={channel === "dine_in"}
-                    onClick={() => setChannel("dine_in")}
-                    label={ar ? "طاولة" : "Dine-in"}
-                  />
-                  <ChannelBtn
-                    active={channel === "delivery"}
-                    onClick={() => setChannel("delivery")}
-                    label={ar ? "توصيل" : "Delivery"}
-                  />
+              {channelCount > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {tableOrdering && (
+                    <ChannelBtn
+                      active={channel === "dine_in"}
+                      onClick={() => setChannel("dine_in")}
+                      label={ar ? "طاولة" : "Dine-in"}
+                    />
+                  )}
+                  {pickup && (
+                    <ChannelBtn
+                      active={channel === "pickup"}
+                      onClick={() => setChannel("pickup")}
+                      label={ar ? "استلام" : "Pickup"}
+                    />
+                  )}
+                  {delivery && (
+                    <ChannelBtn
+                      active={channel === "delivery"}
+                      onClick={() => setChannel("delivery")}
+                      label={ar ? "توصيل" : "Delivery"}
+                    />
+                  )}
                 </div>
               )}
 
@@ -247,9 +305,7 @@ export function CartCheckout({
                           setTableId("");
                         }}
                       >
-                        <option value="">
-                          {ar ? "اختر…" : "Select…"}
-                        </option>
+                        <option value="">{ar ? "اختر…" : "Select…"}</option>
                         {zones.map((z) => (
                           <option key={z.id} value={z.id}>
                             {ar ? z.nameAr : z.name}
@@ -267,9 +323,7 @@ export function CartCheckout({
                       value={tableId}
                       onChange={(e) => setTableId(e.target.value)}
                     >
-                      <option value="">
-                        {ar ? "اختر…" : "Select…"}
-                      </option>
+                      <option value="">{ar ? "اختر…" : "Select…"}</option>
                       {filteredTables.map((t) => (
                         <option key={t.id} value={t.id}>
                           {ar ? t.labelAr || t.label : t.label}
@@ -280,8 +334,42 @@ export function CartCheckout({
                 </>
               )}
 
+              {channel === "pickup" && (
+                <div>
+                  <label className="mb-1 block text-xs text-black/50">
+                    {ar ? "موبايل (لجاهزية الطلب)" : "Phone (for pickup ready)"}
+                  </label>
+                  <input
+                    className="h-11 w-full rounded-md border px-3 text-left"
+                    dir="ltr"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="01xxxxxxxxx"
+                  />
+                </div>
+              )}
+
               {channel === "delivery" && (
                 <>
+                  {areas.length > 0 && (
+                    <div>
+                      <label className="mb-1 block text-xs text-black/50">
+                        {ar ? "منطقة التوصيل" : "Delivery area"}
+                      </label>
+                      <select
+                        className="h-11 w-full rounded-md border px-3"
+                        value={areaId}
+                        onChange={(e) => setAreaId(e.target.value)}
+                      >
+                        <option value="">{ar ? "اختر الحي…" : "Select area…"}</option>
+                        {areas.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {ar ? a.nameAr : a.name} · {a.fee}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="mb-1 block text-xs text-black/50">
                       {ar ? "موبايل" : "Phone"}
@@ -314,6 +402,13 @@ export function CartCheckout({
                       onChange={(e) => setDeliveryNotes(e.target.value)}
                     />
                   </div>
+                  {belowMin && (
+                    <p className="text-xs text-red-600">
+                      {ar
+                        ? `الحد الأدنى للتوصيل ${formatPrice(minOrder, currency, locale)}`
+                        : `Minimum for delivery ${formatPrice(minOrder, currency, locale)}`}
+                    </p>
+                  )}
                 </>
               )}
 
@@ -335,14 +430,17 @@ export function CartCheckout({
                   ? payHint
                   : channel === "delivery"
                     ? ar
-                      ? "الدفع عند الاستلام — مفيش دفع أونلاين دلوقتي."
-                      : "Pay on delivery — online payment not active yet."
-                    : ar
-                      ? "الحساب عند الكاشير / على الطاولة — مفيش دفع أونلاين دلوقتي."
-                      : "Pay at cashier / table — online payment not active yet."}
+                      ? "الدفع عند الاستلام."
+                      : "Pay on delivery."
+                    : channel === "pickup"
+                      ? ar
+                        ? "ادفع عند الاستلام من الفرع."
+                        : "Pay when you collect."
+                      : ar
+                        ? "الحساب عند الكاشير."
+                        : "Pay at cashier."}
               </p>
 
-              {/* honeypot */}
               <input
                 tabIndex={-1}
                 autoComplete="off"
@@ -362,9 +460,29 @@ export function CartCheckout({
         </div>
 
         <div className="border-t border-black/10 px-4 py-3">
+          {priced.deliveryFee > 0 && (
+            <div className="mb-1 flex justify-between text-xs text-black/50">
+              <span>{ar ? "التوصيل" : "Delivery"}</span>
+              <span>{formatPrice(priced.deliveryFee, currency, locale)}</span>
+            </div>
+          )}
+          {priced.tax > 0 && (
+            <div className="mb-1 flex justify-between text-xs text-black/50">
+              <span>
+                {ar
+                  ? taxInclusive
+                    ? "شامل الضريبة"
+                    : "الضريبة"
+                  : taxInclusive
+                    ? "Incl. tax"
+                    : "Tax"}
+              </span>
+              <span>{formatPrice(priced.tax, currency, locale)}</span>
+            </div>
+          )}
           <div className="mb-2 flex justify-between text-sm font-semibold">
             <span>{ar ? "الإجمالي" : "Total"}</span>
-            <span>{formatPrice(cart.subtotal, currency, locale)}</span>
+            <span>{formatPrice(priced.grandTotal, currency, locale)}</span>
           </div>
           {step === "cart" ? (
             <button
@@ -387,7 +505,7 @@ export function CartCheckout({
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || belowMin}
                 className="h-12 flex-[2] rounded-lg font-bold text-white disabled:opacity-50"
                 style={{ background: "var(--brand-primary)" }}
                 onClick={submit}
@@ -421,7 +539,7 @@ function ChannelBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`h-11 flex-1 rounded-lg border text-sm font-semibold ${
+      className={`h-11 min-w-[5.5rem] flex-1 rounded-lg border text-sm font-semibold ${
         active
           ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
           : "border-black/15"

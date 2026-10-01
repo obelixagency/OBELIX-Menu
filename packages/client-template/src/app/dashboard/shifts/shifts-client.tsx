@@ -27,6 +27,9 @@ type Shift = {
   openingCash: number;
   note: string | null;
   totals: Totals | null;
+  countedCash?: number | null;
+  expectedCash?: number | null;
+  cashVariance?: number | null;
 };
 
 const PAY_AR: Record<string, string> = {
@@ -41,6 +44,7 @@ export function ShiftsClient({ currency }: { currency: string }) {
   const [live, setLive] = useState<Totals | null>(null);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [openingCash, setOpeningCash] = useState("0");
+  const [countedCash, setCountedCash] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -79,12 +83,18 @@ export function ShiftsClient({ currency }: { currency: string }) {
         body: JSON.stringify(
           action === "open"
             ? { action, openingCash: Number(openingCash) || 0 }
-            : { action, note }
+            : {
+                action,
+                note,
+                countedCash:
+                  countedCash === "" ? undefined : Number(countedCash) || 0,
+              }
         ),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل");
       setNote("");
+      setCountedCash("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ");
@@ -153,22 +163,43 @@ export function ShiftsClient({ currency }: { currency: string }) {
                 )}
               </p>
               {live && (
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat
                     label="إيراد الوردية"
                     value={formatPrice(live.revenue, currency, "ar")}
                   />
                   <Stat label="طلبات POS" value={String(live.orderCount)} />
                   <Stat
-                    label="كاش"
+                    label="مبيعات كاش"
                     value={formatPrice(
                       live.byPayment.cash?.revenue || 0,
                       currency,
                       "ar"
                     )}
                   />
+                  <Stat
+                    label="كاش متوقع في الدرج"
+                    value={formatPrice(
+                      (open.openingCash || 0) +
+                        (live.byPayment.cash?.revenue || 0),
+                      currency,
+                      "ar"
+                    )}
+                  />
                 </div>
               )}
+              <label className="block space-y-1 text-sm">
+                <span className="text-black/50">كاش معدود عند الإقفال</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={countedCash}
+                  onChange={(e) => setCountedCash(e.target.value)}
+                  className="h-11"
+                  placeholder="عدّ الدرج"
+                  dir="ltr"
+                />
+              </label>
               <label className="block space-y-1 text-sm">
                 <span className="text-black/50">ملاحظة الإقفال (اختياري)</span>
                 <Input
@@ -236,6 +267,18 @@ export function ShiftsClient({ currency }: { currency: string }) {
                   )}
                   {s.note && (
                     <p className="mt-2 text-xs text-black/50">{s.note}</p>
+                  )}
+                  {s.expectedCash != null && (
+                    <p className="mt-1 text-xs text-black/50">
+                      متوقع{" "}
+                      {formatPrice(s.expectedCash, currency, "ar")}
+                      {s.countedCash != null
+                        ? ` · معدود ${formatPrice(s.countedCash, currency, "ar")}`
+                        : ""}
+                      {s.cashVariance != null
+                        ? ` · فرق ${formatPrice(s.cashVariance, currency, "ar")}`
+                        : ""}
+                    </p>
                   )}
                 </div>
               ))

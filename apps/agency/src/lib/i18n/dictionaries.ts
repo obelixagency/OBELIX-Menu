@@ -138,6 +138,10 @@ export const dictionaries = {
           label: "Delivery",
           hint: "Guest enters phone + address — pay on delivery",
         },
+        pickupEnabled: {
+          label: "Pickup / collect from branch",
+          hint: "Guest orders on the menu and collects at the cafe — no aggregator commission",
+        },
         zonesIndoorOutdoor: {
           label: "Indoor / outdoor zones",
           hint: "Only shown with table ordering",
@@ -311,6 +315,10 @@ export const dictionaries = {
         deliveryEnabled: {
           label: "التوصيل",
           hint: "الزائر يدخل موبايل + عنوان — الدفع عند الاستلام",
+        },
+        pickupEnabled: {
+          label: "استلام من الفرع",
+          hint: "الطلب من المنيو والاستلام من الكافيه — من غير عمولة طلبات/جاهز",
         },
         zonesIndoorOutdoor: {
           label: "مناطق داخلي / خارجي",

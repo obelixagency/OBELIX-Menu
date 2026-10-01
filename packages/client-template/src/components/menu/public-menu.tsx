@@ -17,7 +17,7 @@ import {
   type Product,
   type Review,
 } from "@/lib/types";
-import { isOrderingEnabled, normalizeOrderingFeatures } from "@/lib/extensions/ordering";
+import { inSchedule, prepLabel } from "@/lib/commerce";
 import { dirFor, pickLocalized, type Locale } from "@/lib/i18n";
 import { childrenOf } from "@/lib/menu-data-browser";
 import { RateFormModal } from "@/components/menu/rate-form-modal";
@@ -39,6 +39,8 @@ type Props = {
   inventoryEnabled?: boolean;
   branchId?: string;
   branchLabel?: string;
+  seasonalNote?: string;
+  seasonalNoteEn?: string;
 };
 
 export function PublicMenu(props: Props) {
@@ -61,6 +63,8 @@ function PublicMenuInner({
   inventoryEnabled = false,
   branchId,
   branchLabel,
+  seasonalNote,
+  seasonalNoteEn,
   features,
 }: Props & {
   features: ReturnType<typeof normalizeOrderingFeatures>;
@@ -103,7 +107,11 @@ function PublicMenuInner({
     [categories]
   );
 
-  function commitAdd(p: Product, selections: { groupId: string; valueId: string }[] = []) {
+  function commitAdd(
+    p: Product,
+    selections: { groupId: string; valueId: string }[] = [],
+    prep: string[] = []
+  ) {
     if (isOut(p.id)) return;
     const discount = resolveDiscount(p, catMap.get(p.categoryId));
     const base = configuredBasePrice(p, selections);
@@ -115,11 +123,17 @@ function PublicMenuInner({
         .reduce((s, l) => s + l.qty, 0);
       if (inCart + 1 > have) return;
     }
-    const extrasAr = optionLabels(p, selections, "ar");
-    const extrasEn = optionLabels(p, selections, "en");
+    const extrasAr = [
+      ...optionLabels(p, selections, "ar"),
+      ...prep.map((id) => prepLabel(id, "ar")),
+    ];
+    const extrasEn = [
+      ...optionLabels(p, selections, "en"),
+      ...prep.map((id) => prepLabel(id, "en")),
+    ];
     cart.addItem({
       itemId: p.id,
-      lineKey: lineKey(p.id, selections),
+      lineKey: lineKey(p.id, selections, prep),
       name: extrasAr.length ? `${p.name} · ${extrasAr.join(" · ")}` : p.name,
       nameEn: extrasEn.length
         ? `${p.nameEn || p.name} · ${extrasEn.join(" · ")}`
@@ -127,11 +141,12 @@ function PublicMenuInner({
       unitPrice: pricing.final,
       image: p.image,
       options: selections,
+      prep,
     });
   }
 
   function addProduct(p: Product) {
-    if ((p.optionGroups || []).length) {
+    if ((p.optionGroups || []).length || p.prepEnabled) {
       setPicking(p);
       return;
     }
@@ -139,10 +154,11 @@ function PublicMenuInner({
   }
 
   const productsHere = useMemo(() => {
-    if (!currentParent) return products.filter((p) => p.available);
-    return products.filter(
-      (p) => p.available && p.categoryId === currentParent
+    const live = products.filter(
+      (p) => p.available && inSchedule(p.offerFrom, p.offerUntil)
     );
+    if (!currentParent) return live;
+    return live.filter((p) => p.categoryId === currentParent);
   }, [products, currentParent]);
 
   const filtered = useMemo(() => {
@@ -164,7 +180,7 @@ function PublicMenuInner({
 
   const featured = useMemo(() => {
     if (query || currentParent) return [];
-    return products.filter((p) => p.available && p.featured);
+    return products.filter((p) => p.available && p.featured && inSchedule(p.offerFrom, p.offerUntil));
   }, [products, query, currentParent]);
 
   const visibleReviews = reviews.filter((r) => r.visible).slice(0, 6);
@@ -194,7 +210,9 @@ function PublicMenuInner({
         </>
       ) : null}
 
-      <PromoBannerCarousel banners={banners} />
+      <PromoBannerCarousel
+        banners={banners.filter((b) => inSchedule(b.startsAt, b.endsAt))}
+      />
 
       <header className="sticky top-0 z-20 border-b border-[var(--brand-line)] bg-[color-mix(in_srgb,var(--brand-surface)_88%,white)]/95 backdrop-blur">
         <div className="relative mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
@@ -270,6 +288,23 @@ function PublicMenuInner({
             )}
           </div>
         </div>
+        {(pickLocalized(locale, seasonalNote, seasonalNoteEn) ||
+          (brand.taxPercent && brand.taxPercent > 0)) && (
+          <p className="mx-auto max-w-3xl px-4 pb-2 text-xs text-[var(--brand-muted)]">
+            {pickLocalized(locale, seasonalNote, seasonalNoteEn)}
+            {brand.taxPercent && brand.taxPercent > 0
+              ? `${pickLocalized(locale, seasonalNote, seasonalNoteEn) ? " · " : ""}${
+                  brand.taxInclusive !== false
+                    ? locale === "en"
+                      ? `Prices include ${brand.taxPercent}% tax`
+                      : `الأسعار شاملة ضريبة ${brand.taxPercent}%`
+                    : locale === "en"
+                      ? `+${brand.taxPercent}% tax at checkout`
+                      : `+${brand.taxPercent}% ضريبة عند الحساب`
+                }`
+              : ""}
+          </p>
+        )}
       </header>
 
       <div className="relative mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-5">
@@ -491,11 +526,14 @@ function PublicMenuInner({
             currency={currency}
             tableOrdering={features.tableOrderingEnabled}
             delivery={features.deliveryEnabled}
+            pickup={features.pickupEnabled}
             zonesEnabled={
               features.tableOrderingEnabled && features.zonesIndoorOutdoor
             }
             guestNoteEnabled={features.guestNoteEnabled}
             branchId={branchId}
+            taxPercent={brand.taxPercent}
+            taxInclusive={brand.taxInclusive !== false}
           />
         </>
       )}
@@ -507,8 +545,8 @@ function PublicMenuInner({
           locale={locale}
           currency={currency}
           onCancel={() => setPicking(null)}
-          onConfirm={(selections) => {
-            commitAdd(picking, selections);
+          onConfirm={(selections, prep) => {
+            commitAdd(picking, selections, prep);
             setPicking(null);
           }}
         />

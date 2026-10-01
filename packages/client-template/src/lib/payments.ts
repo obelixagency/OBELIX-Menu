@@ -7,6 +7,8 @@ export type PaymentProviderId =
   | "none"
   | "paymob"
   | "fawry"
+  | "tap"
+  | "moyasar"
   | "stripe"
   | "custom";
 
@@ -33,6 +35,8 @@ export function normalizePayments(
     "none",
     "paymob",
     "fawry",
+    "tap",
+    "moyasar",
     "stripe",
     "custom",
   ];

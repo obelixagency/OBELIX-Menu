@@ -170,6 +170,7 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
                 maxItems={features.maxItemsPerOrder || 50}
                 tableOrdering={features.tableOrderingEnabled}
                 delivery={features.deliveryEnabled}
+                pickup={features.pickupEnabled}
                 zonesEnabled={
                   features.tableOrderingEnabled && features.zonesIndoorOutdoor
                 }
@@ -178,6 +179,8 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
                 branchId={branchId}
                 product={product}
                 category={category}
+                taxPercent={brand.taxPercent}
+                taxInclusive={brand.taxInclusive !== false}
               />
             )
           ) : (

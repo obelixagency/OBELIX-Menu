@@ -99,6 +99,9 @@ export async function GET(req: NextRequest) {
         colors: brand.colors,
         currency: brand.currency || "EGP",
         languages: brand.languages || "both",
+        taxPercent: brand.taxPercent || 0,
+        taxInclusive: brand.taxInclusive !== false,
+        taxNumber: brand.taxNumber || null,
       },
       features: {
         tableOrderingEnabled: features.tableOrderingEnabled,

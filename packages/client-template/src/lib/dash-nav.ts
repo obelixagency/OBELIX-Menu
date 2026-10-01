@@ -33,6 +33,7 @@ export type DashFlags = {
   inventoryOn: boolean;
   purchasingOn: boolean;
   branchesOn: boolean;
+  deliveryOn: boolean;
   cashierOn: boolean;
   kitchenOn: boolean;
   barOn: boolean;
@@ -100,6 +101,14 @@ export const DASH_NAV: DashNavGroup[] = [
         en: "Banners",
         icon: ImageIcon,
         show: (_f, isOwner) => isOwner,
+      },
+      {
+        href: "/dashboard/delivery",
+        key: "delivery",
+        ar: "التوصيل",
+        en: "Delivery",
+        icon: Truck,
+        show: (f, isOwner) => isOwner && f.deliveryOn,
       },
     ],
   },

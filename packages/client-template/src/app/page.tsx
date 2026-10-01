@@ -14,7 +14,8 @@ import {
   isMultiBranchOn,
   resolveBranchId,
 } from "@/lib/branches-data";
-import { PublicMenu } from "@/components/menu/public-menu";
+import { getOrderingSettings } from "@/lib/ordering-data";
+import { inSchedule } from "@/lib/commerce";
 
 type Props = { searchParams: Promise<{ branch?: string }> };
 
@@ -24,7 +25,7 @@ export default async function HomePage({ searchParams }: Props) {
   const branchId = await resolveBranchId(sp.branch || null);
   const branch = multi ? await getBranch(branchId) : null;
 
-  const [brand, categories, productsRaw, contacts, reviews, banners, invOn, promoOn] =
+  const [brand, categories, productsRaw, contacts, reviews, banners, invOn, promoOn, ordering] =
     await Promise.all([
       readBrand(),
       listCategories(),
@@ -34,6 +35,7 @@ export default async function HomePage({ searchParams }: Props) {
       listBanners(),
       isInventoryOn(),
       isPromoEnabled(),
+      getOrderingSettings(),
     ]);
 
   const products = await Promise.all(
@@ -48,11 +50,17 @@ export default async function HomePage({ searchParams }: Props) {
       products={products}
       contacts={contacts}
       reviews={reviews}
-      banners={promoOn ? banners : []}
+      banners={
+        promoOn
+          ? banners.filter((b) => b.active && inSchedule(b.startsAt, b.endsAt))
+          : []
+      }
       stockMap={stockMap}
       inventoryEnabled={invOn}
       branchId={branchId}
       branchLabel={branch?.name}
+      seasonalNote={ordering.seasonalNote}
+      seasonalNoteEn={ordering.seasonalNoteEn}
     />
   );
 }

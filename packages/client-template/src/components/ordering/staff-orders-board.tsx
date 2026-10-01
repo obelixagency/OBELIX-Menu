@@ -13,10 +13,11 @@ type Order = {
   code: string;
   createdAt: string;
   updatedAt: string;
-  channel: "dine_in" | "delivery" | "pos";
+  channel: "dine_in" | "delivery" | "pickup" | "pos";
   tableLabel?: string | null;
   zoneLabel?: string | null;
   delivery?: { phone: string; addressLine: string } | null;
+  pickup?: { phone: string; name?: string } | null;
   status: OrderStatus;
   guestNote?: string;
   lines: {
@@ -58,7 +59,7 @@ export function StaffOrdersBoard({
   const [soundOn, setSoundOn] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>("");
   const [channelFilter, setChannelFilter] = useState<
-    "all" | "delivery" | "dine_in" | "pos"
+    "all" | "delivery" | "dine_in" | "pickup" | "pos"
   >("all");
   const [storeName, setStoreName] = useState("OBELIX");
   const [staffWaPhone, setStaffWaPhone] = useState("");
@@ -177,18 +178,22 @@ export function StaffOrdersBoard({
     const channelAr =
       o.channel === "delivery"
         ? "توصيل"
-        : o.channel === "pos"
-          ? "POS"
-          : "طاولة";
+        : o.channel === "pickup"
+          ? "استلام"
+          : o.channel === "pos"
+            ? "POS"
+            : "طاولة";
     const lines = o.lines
       .map((l) => `• ${l.qty}× ${l.nameAr || l.name}`)
       .join("\n");
     const where =
       o.channel === "delivery"
         ? `📍 ${o.delivery?.addressLine || "—"}\n📞 ${o.delivery?.phone || "—"}`
-        : o.tableLabel
-          ? `🪑 ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
-          : "حضور";
+        : o.channel === "pickup"
+          ? `🏪 استلام من الفرع\n📞 ${o.pickup?.phone || "—"}`
+          : o.tableLabel
+            ? `🪑 ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+            : "حضور";
     const note = o.guestNote ? `\nملاحظة: ${o.guestNote}` : "";
     const text =
       `طلب جديد — ${storeName}\n` +
@@ -201,10 +206,15 @@ export function StaffOrdersBoard({
   }
 
   function openCustomerWhatsApp(o: Order) {
-    const phone = o.delivery?.phone;
+    const phone = o.delivery?.phone || o.pickup?.phone;
     if (!phone) return;
-    const text = `مرحباً — طلبك #${o.code} من ${storeName} قيد التجهيز.`;
-    const url = whatsappClickUrl(phone, text);
+    const ready =
+      o.status === "ready"
+        ? o.channel === "pickup"
+          ? `طلبك #${o.code} جاهز للاستلام من ${storeName}.`
+          : `طلبك #${o.code} من ${storeName} جاهز.`
+        : `مرحباً — طلبك #${o.code} من ${storeName} قيد التجهيز.`;
+    const url = whatsappClickUrl(phone, ready);
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -222,15 +232,19 @@ export function StaffOrdersBoard({
     const channelLabel =
       o.channel === "delivery"
         ? "توصيل"
-        : o.channel === "pos"
-          ? "POS"
-          : "طاولة";
+        : o.channel === "pickup"
+          ? "استلام"
+          : o.channel === "pos"
+            ? "POS"
+            : "طاولة";
     const whereLabel =
       o.channel === "delivery"
         ? o.delivery?.addressLine || o.delivery?.phone || "—"
-        : o.tableLabel
-          ? `${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
-          : "walk-in";
+        : o.channel === "pickup"
+          ? o.pickup?.phone || "استلام من الفرع"
+          : o.tableLabel
+            ? `${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
+            : "walk-in";
     printKitchenTicket({
       storeName,
       code: o.code,
@@ -317,6 +331,7 @@ export function StaffOrdersBoard({
           [
             ["all", "الكل"],
             ["delivery", "توصيل"],
+            ["pickup", "استلام"],
             ["dine_in", "طاولة"],
             ["pos", "POS"],
           ] as const
@@ -379,6 +394,11 @@ export function StaffOrdersBoard({
                   <>
                     <span className="text-[var(--brand-primary)]">توصيل</span> ·{" "}
                     {o.delivery?.phone} · {o.delivery?.addressLine}
+                  </>
+                ) : o.channel === "pickup" ? (
+                  <>
+                    <span className="text-[var(--brand-primary)]">استلام</span>
+                    {o.pickup?.phone ? ` · ${o.pickup.phone}` : ""}
                   </>
                 ) : o.channel === "pos" ? (
                   <>
@@ -444,16 +464,17 @@ export function StaffOrdersBoard({
                   <button
                     type="button"
                     onClick={() => openStaffWhatsApp(o)}
-                    className="min-h-11 rounded-md border border-emerald-400/40 px-3 text-sm font-semibold text-emerald-300"
+                    className="min-h-11 rounded-xl border border-emerald-700 px-3 text-sm font-semibold text-emerald-800"
                   >
                     واتساب للمطعم
                   </button>
                 )}
-                {o.channel === "delivery" && o.delivery?.phone && (
+                {(o.channel === "delivery" || o.channel === "pickup") &&
+                  (o.delivery?.phone || o.pickup?.phone) && (
                   <button
                     type="button"
                     onClick={() => openCustomerWhatsApp(o)}
-                    className="min-h-11 rounded-md border border-sky-400/40 px-3 text-sm font-semibold text-sky-300"
+                    className="min-h-11 rounded-xl border border-sky-700 px-3 text-sm font-semibold text-sky-800"
                   >
                     واتساب للعميل
                   </button>

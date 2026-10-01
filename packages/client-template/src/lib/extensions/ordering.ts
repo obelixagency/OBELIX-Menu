@@ -7,7 +7,7 @@ export type OrderingProvider = "whatsapp" | "cart" | "external" | null;
 
 export type Station = "kitchen" | "barista" | "unassigned";
 
-export type OrderChannel = "dine_in" | "delivery" | "pos";
+export type OrderChannel = "dine_in" | "delivery" | "pickup" | "pos";
 
 export type OrderStatus =
   | "new"
@@ -23,6 +23,8 @@ export type OrderingFeatures = {
   orderFromMenu: boolean;
   tableOrderingEnabled: boolean;
   deliveryEnabled: boolean;
+  /** Guest pickup at the branch — independent of delivery */
+  pickupEnabled: boolean;
   zonesIndoorOutdoor: boolean;
   cashierScreen: boolean;
   kitchenScreen: boolean;
@@ -52,6 +54,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   orderFromMenu: false,
   tableOrderingEnabled: false,
   deliveryEnabled: false,
+  pickupEnabled: false,
   zonesIndoorOutdoor: false,
   cashierScreen: false,
   kitchenScreen: false,
@@ -85,6 +88,7 @@ export function normalizeOrderingFeatures(
   merged.orderFromMenu = Boolean(merged.orderFromMenu);
   merged.tableOrderingEnabled = Boolean(merged.tableOrderingEnabled);
   merged.deliveryEnabled = Boolean(merged.deliveryEnabled);
+  merged.pickupEnabled = Boolean(merged.pickupEnabled);
   merged.zonesIndoorOutdoor = Boolean(merged.zonesIndoorOutdoor);
   merged.cashierScreen = Boolean(merged.cashierScreen);
   merged.kitchenScreen = Boolean(merged.kitchenScreen);
@@ -124,10 +128,21 @@ export function hasDeliveryOrdering(
   return f.orderFromMenu && f.deliveryEnabled;
 }
 
+export function hasPickupOrdering(
+  ext?: Partial<OrderingFeatures> | null
+): boolean {
+  const f = normalizeOrderingFeatures(ext);
+  return f.orderFromMenu && f.pickupEnabled;
+}
+
 export function hasAnyOrderChannel(
   ext?: Partial<OrderingFeatures> | null
 ): boolean {
-  return hasTableOrdering(ext) || hasDeliveryOrdering(ext);
+  return (
+    hasTableOrdering(ext) ||
+    hasDeliveryOrdering(ext) ||
+    hasPickupOrdering(ext)
+  );
 }
 
 export function hasPos(ext?: Partial<OrderingFeatures> | null): boolean {

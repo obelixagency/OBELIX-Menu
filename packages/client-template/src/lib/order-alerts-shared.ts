@@ -37,18 +37,22 @@ export function buildOrderAlertText(
   const channelAr =
     order.channel === "delivery"
       ? "توصيل"
-      : order.channel === "pos"
-        ? "POS"
-        : "طاولة";
+      : order.channel === "pickup"
+        ? "استلام"
+        : order.channel === "pos"
+          ? "POS"
+          : "طاولة";
   const lines = order.lines
     .map((l) => `• ${l.qty}× ${l.nameAr || l.name}`)
     .join("\n");
   const where =
     order.channel === "delivery"
       ? `📍 ${order.delivery?.addressLine || "—"}\n📞 ${order.delivery?.phone || "—"}`
-      : order.tableLabel
-        ? `🪑 ${order.zoneLabel ? `${order.zoneLabel} / ` : ""}${order.tableLabel}`
-        : "حضور";
+      : order.channel === "pickup"
+        ? "🏪 استلام من الفرع"
+        : order.tableLabel
+          ? `🪑 ${order.zoneLabel ? `${order.zoneLabel} / ` : ""}${order.tableLabel}`
+          : "حضور";
   const note = order.guestNote ? `\nملاحظة: ${order.guestNote}` : "";
   return (
     `طلب جديد — ${storeName}\n` +

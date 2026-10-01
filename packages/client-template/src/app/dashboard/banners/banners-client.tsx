@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Banner } from "@/lib/types";
+import { isoToLocalInput, localInputToIso } from "@/lib/commerce";
 
 export default function BannersClient() {
   const router = useRouter();
@@ -64,6 +65,18 @@ export default function BannersClient() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !b.active }),
+    });
+    await load();
+  }
+
+  async function saveWindow(b: Banner, startsAt: string, endsAt: string) {
+    await fetch(`/api/banners/${b.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startsAt: localInputToIso(startsAt),
+        endsAt: localInputToIso(endsAt),
+      }),
     });
     await load();
   }
@@ -140,13 +153,37 @@ export default function BannersClient() {
               alt=""
               className="aspect-[21/9] w-full object-cover"
             />
-            <div className="flex justify-end gap-2 p-2">
+            <div className="space-y-2 p-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <Label>يبدأ</Label>
+                  <Input
+                    type="datetime-local"
+                    defaultValue={isoToLocalInput(b.startsAt)}
+                    onBlur={(e) =>
+                      saveWindow(b, e.target.value, isoToLocalInput(b.endsAt))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>ينتهي</Label>
+                  <Input
+                    type="datetime-local"
+                    defaultValue={isoToLocalInput(b.endsAt)}
+                    onBlur={(e) =>
+                      saveWindow(b, isoToLocalInput(b.startsAt), e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => toggle(b)}>
                 {b.active ? "ظاهر" : "مخفي"}
               </Button>
               <Button size="sm" variant="danger" onClick={() => remove(b.id)}>
                 حذف
               </Button>
+              </div>
             </div>
           </li>
         ))}

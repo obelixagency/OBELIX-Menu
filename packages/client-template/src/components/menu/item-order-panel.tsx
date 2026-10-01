@@ -16,6 +16,7 @@ import {
   type OptionSelection,
   type Product,
 } from "@/lib/types";
+import { prepLabel } from "@/lib/commerce";
 
 type Props = {
   locale: Locale;
@@ -23,6 +24,7 @@ type Props = {
   maxItems: number;
   tableOrdering: boolean;
   delivery: boolean;
+  pickup?: boolean;
   zonesEnabled: boolean;
   guestNoteEnabled: boolean;
   /** Remaining stock; null when inventory tracking is off */
@@ -30,6 +32,8 @@ type Props = {
   branchId?: string;
   product: Product;
   category?: Category | null;
+  taxPercent?: number;
+  taxInclusive?: boolean;
 };
 
 export function ItemOrderPanel(props: Props) {
@@ -45,12 +49,15 @@ function ItemOrderPanelInner({
   currency,
   tableOrdering,
   delivery,
+  pickup = false,
   zonesEnabled,
   guestNoteEnabled,
   stockQty = null,
   branchId,
   product,
   category,
+  taxPercent,
+  taxInclusive,
 }: Props) {
   const cart = useCart();
   const maxQty =
@@ -61,11 +68,12 @@ function ItemOrderPanelInner({
   const [err, setErr] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const ar = locale === "ar";
-  const hasOptions = (product.optionGroups || []).length > 0;
+  const hasOptions =
+    (product.optionGroups || []).length > 0 || Boolean(product.prepEnabled);
   const discount = resolveDiscount(product, category);
   const shelf = priceAfterDiscount(product.price, discount);
 
-  function commit(selections: OptionSelection[] = [], count: number) {
+  function commit(selections: OptionSelection[] = [], count: number, prep: string[] = []) {
     setErr(null);
     if (typeof stockQty === "number") {
       const inCart = cart.lines
@@ -78,12 +86,18 @@ function ItemOrderPanelInner({
     }
     const base = configuredBasePrice(product, selections);
     const pricing = priceAfterDiscount(base, discount);
-    const extrasAr = optionLabels(product, selections, "ar");
-    const extrasEn = optionLabels(product, selections, "en");
+    const extrasAr = [
+      ...optionLabels(product, selections, "ar"),
+      ...prep.map((id) => prepLabel(id, "ar")),
+    ];
+    const extrasEn = [
+      ...optionLabels(product, selections, "en"),
+      ...prep.map((id) => prepLabel(id, "en")),
+    ];
     cart.addItem(
       {
         itemId: product.id,
-        lineKey: lineKey(product.id, selections),
+        lineKey: lineKey(product.id, selections, prep),
         name: extrasAr.length ? `${product.name} · ${extrasAr.join(" · ")}` : product.name,
         nameEn: extrasEn.length
           ? `${product.nameEn || product.name} · ${extrasEn.join(" · ")}`
@@ -91,6 +105,7 @@ function ItemOrderPanelInner({
         unitPrice: pricing.final,
         image: product.image,
         options: selections,
+        prep,
       },
       count
     );
@@ -184,8 +199,8 @@ function ItemOrderPanelInner({
           locale={locale}
           currency={currency}
           onCancel={() => setPicking(false)}
-          onConfirm={(selections) => {
-            commit(selections, qty);
+          onConfirm={(selections, prep) => {
+            commit(selections, qty, prep);
             setPicking(false);
           }}
         />
@@ -196,9 +211,12 @@ function ItemOrderPanelInner({
         currency={currency}
         tableOrdering={tableOrdering}
         delivery={delivery}
+        pickup={pickup}
         zonesEnabled={zonesEnabled}
         guestNoteEnabled={guestNoteEnabled}
         branchId={branchId}
+        taxPercent={taxPercent}
+        taxInclusive={taxInclusive}
       />
     </>
   );

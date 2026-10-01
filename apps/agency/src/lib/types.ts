@@ -11,6 +11,7 @@ export type OrderingFeatures = {
   orderFromMenu: boolean;
   tableOrderingEnabled: boolean;
   deliveryEnabled: boolean;
+  pickupEnabled: boolean;
   zonesIndoorOutdoor: boolean;
   cashierScreen: boolean;
   kitchenScreen: boolean;
@@ -33,6 +34,7 @@ export const DEFAULT_ORDERING_FEATURES: OrderingFeatures = {
   orderFromMenu: false,
   tableOrderingEnabled: false,
   deliveryEnabled: false,
+  pickupEnabled: false,
   zonesIndoorOutdoor: false,
   cashierScreen: false,
   kitchenScreen: false,
@@ -55,6 +57,7 @@ export function normalizeOrderingFeatures(
     orderFromMenu: Boolean(raw?.orderFromMenu),
     tableOrderingEnabled: Boolean(raw?.tableOrderingEnabled),
     deliveryEnabled: Boolean(raw?.deliveryEnabled),
+    pickupEnabled: Boolean(raw?.pickupEnabled),
     zonesIndoorOutdoor: Boolean(raw?.zonesIndoorOutdoor),
     cashierScreen: Boolean(raw?.cashierScreen),
     kitchenScreen: Boolean(raw?.kitchenScreen),

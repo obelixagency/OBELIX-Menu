@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
         featured: body.featured ?? false,
         sortOrder: body.sortOrder ?? 0,
         optionGroups: body.optionGroups || [],
+        comboItems: body.comboItems || [],
+        prepEnabled: Boolean(body.prepEnabled),
+        offerFrom: body.offerFrom || null,
+        offerUntil: body.offerUntil || null,
     });
     return NextResponse.json({ product }, { status: 201 });
   } catch (err) {

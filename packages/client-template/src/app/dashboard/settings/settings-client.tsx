@@ -35,6 +35,15 @@ export default function SettingsClient() {
   const [payEnabled, setPayEnabled] = useState(false);
   const [payProvider, setPayProvider] = useState("none");
   const [paySaving, setPaySaving] = useState(false);
+  const [taxPercent, setTaxPercent] = useState("0");
+  const [taxInclusive, setTaxInclusive] = useState(true);
+  const [taxNumber, setTaxNumber] = useState("");
+  const [loyaltyOn, setLoyaltyOn] = useState(false);
+  const [stampsFor, setStampsFor] = useState("10");
+  const [seasonalNote, setSeasonalNote] = useState("");
+  const [seasonalNoteEn, setSeasonalNoteEn] = useState("");
+  const [alertOnPickup, setAlertOnPickup] = useState(true);
+  const [commerceSaving, setCommerceSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -46,11 +55,19 @@ export default function SettingsClient() {
       setCurrency(brandData.brand?.currency || "EGP");
       setSlogan(brandData.brand?.slogan || "");
       setSloganEn(brandData.brand?.sloganEn || "");
+      setTaxPercent(String(brandData.brand?.taxPercent || 0));
+      setTaxInclusive(brandData.brand?.taxInclusive !== false);
+      setTaxNumber(brandData.brand?.taxNumber || "");
+      setLoyaltyOn(Boolean(cfg.settings?.loyaltyEnabled));
+      setStampsFor(String(cfg.settings?.stampsForReward || 10));
+      setSeasonalNote(cfg.settings?.seasonalNote || "");
+      setSeasonalNoteEn(cfg.settings?.seasonalNoteEn || "");
       const a = cfg.settings?.alerts;
       if (a) {
         setAlertOnDelivery(a.alertOnDelivery !== false);
         setAlertOnDineIn(Boolean(a.alertOnDineIn));
         setAlertOnPos(Boolean(a.alertOnPos));
+        setAlertOnPickup(a.alertOnPickup !== false);
         setWhatsappPhone(a.whatsappPhone || "");
         setCallMeBotApiKey(a.callMeBotApiKey || "");
         setWebhookUrl(a.webhookUrl || "");
@@ -77,6 +94,9 @@ export default function SettingsClient() {
           menuBackgroundUrl: bgUrl,
           slogan,
           sloganEn,
+          taxPercent: Number(taxPercent) || 0,
+          taxInclusive,
+          taxNumber,
         }),
       });
       const data = await res.json();
@@ -107,6 +127,7 @@ export default function SettingsClient() {
             alertOnDelivery,
             alertOnDineIn,
             alertOnPos,
+            alertOnPickup,
             whatsappPhone,
             callMeBotApiKey,
             webhookUrl,
@@ -154,6 +175,47 @@ export default function SettingsClient() {
       setError(err instanceof Error ? err.message : "خطأ");
     } finally {
       setPaySaving(false);
+    }
+  }
+
+  async function saveCommerce(e: FormEvent) {
+    e.preventDefault();
+    setCommerceSaving(true);
+    setError(null);
+    setMsg(null);
+    try {
+      const brandRes = await fetch(withBasePath("/api/brand"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taxPercent: Number(taxPercent) || 0,
+          taxInclusive,
+          taxNumber,
+        }),
+      });
+      const brandData = await brandRes.json();
+      if (brandRes.status === 401) {
+        router.push("/dashboard/login");
+        return;
+      }
+      if (!brandRes.ok) throw new Error(brandData.error || "فشل الضريبة");
+      const cfgRes = await fetch(withBasePath("/api/ordering/config"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loyaltyEnabled: loyaltyOn,
+          stampsForReward: Number(stampsFor) || 10,
+          seasonalNote,
+          seasonalNoteEn,
+        }),
+      });
+      const cfgData = await cfgRes.json();
+      if (!cfgRes.ok) throw new Error(cfgData.error || "فشل الولاء / الموسم");
+      setMsg("تم حفظ الضريبة والولاء والملاحظة الموسمية");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setCommerceSaving(false);
     }
   }
 
@@ -228,6 +290,99 @@ export default function SettingsClient() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">ضريبة · ولاء · ملاحظة موسمية</CardTitle>
+          <CardDescription>
+            تظهر الضريبة على المنيو والإيصال. أختام الولاء تُحتسب من رقم الموبايل
+            في التوصيل أو الاستلام. الملاحظة الموسمية سطر أعلى المنيو (رمضان /
+            عرض محدود).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={saveCommerce} className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="taxp">نسبة الضريبة %</Label>
+              <Input
+                id="taxp"
+                type="number"
+                min="0"
+                max="50"
+                step="0.5"
+                value={taxPercent}
+                onChange={(e) => setTaxPercent(e.target.value)}
+                dir="ltr"
+                className="text-left"
+              />
+            </div>
+            <div>
+              <Label htmlFor="taxn">الرقم الضريبي (إيصال)</Label>
+              <Input
+                id="taxn"
+                value={taxNumber}
+                onChange={(e) => setTaxNumber(e.target.value)}
+                dir="ltr"
+                className="text-left"
+                placeholder="VAT / TRN"
+              />
+            </div>
+            <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={taxInclusive}
+                onChange={(e) => setTaxInclusive(e.target.checked)}
+              />
+              الأسعار شاملة الضريبة (VAT inclusive)
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={loyaltyOn}
+                onChange={(e) => setLoyaltyOn(e.target.checked)}
+              />
+              تفعيل أختام الولاء (ختم لكل طلب توصيل/استلام)
+            </label>
+            <div>
+              <Label htmlFor="stamps">أختام للهديّة</Label>
+              <Input
+                id="stamps"
+                type="number"
+                min="2"
+                max="50"
+                value={stampsFor}
+                onChange={(e) => setStampsFor(e.target.value)}
+                dir="ltr"
+                className="text-left"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="season">ملاحظة موسمية (عربي)</Label>
+              <Input
+                id="season"
+                value={seasonalNote}
+                onChange={(e) => setSeasonalNote(e.target.value)}
+                placeholder="عرض رمضان حتى نهاية الشهر"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="seasonEn">Seasonal note (EN)</Label>
+              <Input
+                id="seasonEn"
+                value={seasonalNoteEn}
+                onChange={(e) => setSeasonalNoteEn(e.target.value)}
+                dir="ltr"
+                className="text-left"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="submit" disabled={commerceSaving}>
+                {commerceSaving ? "…" : "حفظ الضريبة والولاء"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">تنبيهات الطلبات (واتساب)</CardTitle>
           <CardDescription>
             عند طلب توصيل جديد: إرسال رسالة واتساب عبر CallMeBot و/أو Webhook
@@ -260,6 +415,14 @@ export default function SettingsClient() {
                 onChange={(e) => setAlertOnPos(e.target.checked)}
               />
               تنبيه عند إقفال تذكرة من الـ POS
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={alertOnPickup}
+                onChange={(e) => setAlertOnPickup(e.target.checked)}
+              />
+              تنبيه عند طلب استلام من الفرع
             </label>
             <div>
               <Label htmlFor="wa">رقم واتساب المطعم</Label>
@@ -336,6 +499,8 @@ export default function SettingsClient() {
                 <option value="none">لم يُحدد</option>
                 <option value="paymob">Paymob</option>
                 <option value="fawry">Fawry</option>
+                <option value="tap">Tap (خليج)</option>
+                <option value="moyasar">Moyasar (سعودية)</option>
                 <option value="stripe">Stripe</option>
                 <option value="custom">مخصص / أخرى</option>
               </select>

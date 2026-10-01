@@ -42,6 +42,18 @@ export async function PATCH(req: NextRequest) {
         body.sloganEn !== undefined
           ? String(body.sloganEn || "").trim() || null
           : brand.sloganEn,
+      taxPercent:
+        body.taxPercent !== undefined
+          ? Math.max(0, Math.min(50, Number(body.taxPercent) || 0))
+          : brand.taxPercent || 0,
+      taxInclusive:
+        body.taxInclusive !== undefined
+          ? Boolean(body.taxInclusive)
+          : brand.taxInclusive !== false,
+      taxNumber:
+        body.taxNumber !== undefined
+          ? String(body.taxNumber || "").trim() || null
+          : brand.taxNumber,
       extensions: {
         ...brand.extensions,
         ordering: brand.extensions.ordering,

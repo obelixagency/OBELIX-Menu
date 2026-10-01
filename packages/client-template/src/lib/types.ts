@@ -63,6 +63,12 @@ export type BrandConfig = {
   /** Short line under the name on the public menu */
   slogan?: string | null;
   sloganEn?: string | null;
+  /** VAT / sales tax percent shown on menu + receipt */
+  taxPercent?: number;
+  /** When true, shelf prices already include tax */
+  taxInclusive?: boolean;
+  /** Printed on receipts (KSA/UAE/EG tax number) */
+  taxNumber?: string | null;
   extensions: {
     ordering: OrderingExtension;
     /** Gateway-agnostic online payments slot — inactive until provider credentials */
@@ -96,6 +102,13 @@ export type Product = {
   featured: boolean;
   sortOrder: number;
   optionGroups?: ProductOptionGroup[];
+  /** Combo / meal: component SKUs deducted from inventory */
+  comboItems?: { productId: string; qty: number }[];
+  /** Show spicy / no-onion / doneness chips */
+  prepEnabled?: boolean;
+  /** Optional visibility window (Ramadan / timed offer) */
+  offerFrom?: string | null;
+  offerUntil?: string | null;
 };
 
 export type Contact = {
@@ -133,6 +146,8 @@ export type Banner = {
   imageUrl: string;
   sortOrder: number;
   active: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 };
 
 export type MenuData = {
@@ -225,13 +240,18 @@ export function optionLabels(
   return out;
 }
 
-export function lineKey(itemId: string, selections: OptionSelection[] = []) {
-  if (!selections.length) return itemId;
+export function lineKey(
+  itemId: string,
+  selections: OptionSelection[] = [],
+  prep: string[] = []
+) {
   const part = [...selections]
     .map((s) => `${s.groupId}:${s.valueId}`)
     .sort()
     .join("|");
-  return `${itemId}::${part}`;
+  const p = [...prep].sort().join(",");
+  if (!part && !p) return itemId;
+  return `${itemId}::${part}::${p}`;
 }
 
 export function reviewOverall(r: Review): number {

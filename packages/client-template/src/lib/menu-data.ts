@@ -282,13 +282,21 @@ function normalizeMenu(raw: Partial<MenuData> & { categories?: Category[] }): Me
     discountType: p.discountType ?? null,
     discountValue: p.discountValue ?? 0,
     optionGroups: Array.isArray(p.optionGroups) ? p.optionGroups : [],
+    comboItems: Array.isArray(p.comboItems) ? p.comboItems : [],
+    prepEnabled: Boolean(p.prepEnabled),
+    offerFrom: p.offerFrom || null,
+    offerUntil: p.offerUntil || null,
   }));
   return {
     categories,
     products,
     contacts: raw.contacts || [],
     reviews: raw.reviews || [],
-    banners: raw.banners || [],
+    banners: (raw.banners || []).map((b) => ({
+      ...b,
+      startsAt: b.startsAt || null,
+      endsAt: b.endsAt || null,
+    })),
     meta: {
       ...(raw.meta || {}),
       promoEnabled:
@@ -438,6 +446,10 @@ export async function createProduct(
     featured: input.featured ?? false,
     sortOrder: input.sortOrder ?? menu.products.length + 1,
     optionGroups: input.optionGroups || [],
+    comboItems: input.comboItems || [],
+    prepEnabled: Boolean(input.prepEnabled),
+    offerFrom: input.offerFrom || null,
+    offerUntil: input.offerUntil || null,
   };
   menu.products.push(product);
   await saveMenu(menu);
@@ -616,6 +628,8 @@ export async function createBanner(input: {
   imageUrl: string;
   sortOrder?: number;
   active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }) {
   const menu = await ensureMenu();
   const banner = {
@@ -623,6 +637,8 @@ export async function createBanner(input: {
     imageUrl: input.imageUrl,
     sortOrder: input.sortOrder ?? menu.banners.length + 1,
     active: input.active ?? true,
+    startsAt: input.startsAt || null,
+    endsAt: input.endsAt || null,
   };
   menu.banners.push(banner);
   await saveMenu(menu);
@@ -631,7 +647,13 @@ export async function createBanner(input: {
 
 export async function updateBanner(
   id: string,
-  patch: Partial<{ imageUrl: string; sortOrder: number; active: boolean }>
+  patch: Partial<{
+    imageUrl: string;
+    sortOrder: number;
+    active: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+  }>
 ) {
   const menu = await ensureMenu();
   const idx = menu.banners.findIndex((b) => b.id === id);

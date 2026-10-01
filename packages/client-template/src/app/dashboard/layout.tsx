@@ -32,6 +32,7 @@ export default async function DashboardLayout({
         inventoryOn: features.inventoryEnabled && features.orderFromMenu,
         purchasingOn: features.purchasingEnabled,
         branchesOn: features.multiBranchEnabled && features.orderFromMenu,
+        deliveryOn: features.deliveryEnabled && orderingOn,
         cashierOn: features.cashierScreen && orderingOn,
         kitchenOn: features.kitchenScreen && orderingOn,
         barOn: features.baristaScreen && orderingOn,

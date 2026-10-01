@@ -17,6 +17,9 @@ export type Shift = {
   closedBy: string | null;
   openingCash: number;
   note: string | null;
+  countedCash?: number | null;
+  expectedCash?: number | null;
+  cashVariance?: number | null;
   /** Snapshot filled on close */
   totals: {
     orderCount: number;
@@ -112,6 +115,9 @@ export async function openShift(input: {
     closedBy: null,
     openingCash: Math.max(0, Number(input.openingCash) || 0),
     note: null,
+    countedCash: null,
+    expectedCash: null,
+    cashVariance: null,
     totals: null,
   };
   data.shifts.unshift(shift);
@@ -123,6 +129,7 @@ export async function openShift(input: {
 export async function closeShift(input: {
   closedBy: string;
   note?: string;
+  countedCash?: number;
 }): Promise<Shift> {
   if (!(await shiftsFeatureOn())) throw new Error("POS/shifts disabled");
   const data = await load();
@@ -134,12 +141,28 @@ export async function closeShift(input: {
   const inRange = store.orders.filter(
     (o) => o.createdAt >= shift.openedAt && o.createdAt <= closedAt
   );
+  const totals = summarizeOrders(inRange);
+  const expectedCash =
+    Math.round(
+      (shift.openingCash + (totals.byPayment.cash?.revenue || 0)) * 100
+    ) / 100;
+  const counted =
+    input.countedCash === undefined || input.countedCash === null
+      ? null
+      : Math.max(0, Number(input.countedCash) || 0);
+  const cashVariance =
+    counted != null
+      ? Math.round((counted - expectedCash) * 100) / 100
+      : null;
   data.shifts[idx] = {
     ...shift,
     closedAt,
     closedBy: input.closedBy || "staff",
     note: input.note?.trim().slice(0, 500) || null,
-    totals: summarizeOrders(inRange),
+    totals,
+    expectedCash,
+    countedCash: counted,
+    cashVariance,
   };
   await save(data);
   return data.shifts[idx];

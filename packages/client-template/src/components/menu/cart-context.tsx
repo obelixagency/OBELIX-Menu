@@ -19,6 +19,7 @@ export type CartLine = {
   qty: number;
   image?: string | null;
   options?: { groupId: string; valueId: string }[];
+  prep?: string[];
 };
 
 type CartContextValue = {

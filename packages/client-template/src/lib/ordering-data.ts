@@ -21,6 +21,8 @@ import {
   applyBranchToProduct,
   resolveBranchId,
 } from "./branches-data";
+import { moneyTotals, type DeliveryArea } from "./commerce";
+import { addStamp } from "./loyalty-data";
 
 export type Zone = {
   id: string;
@@ -47,12 +49,21 @@ export type OrderLine = {
   unitPrice: number;
   lineTotal: number;
   station: Station;
+  prep?: string[];
+  stockItems?: { itemId: string; qty: number }[];
 };
 
 export type DeliveryInfo = {
   phone: string;
   addressLine: string;
   notes?: string;
+  areaId?: string;
+  areaName?: string;
+};
+
+export type PickupInfo = {
+  phone: string;
+  name?: string;
 };
 
 export type Order = {
@@ -66,6 +77,7 @@ export type Order = {
   tableLabel?: string | null;
   zoneLabel?: string | null;
   delivery?: DeliveryInfo | null;
+  pickup?: PickupInfo | null;
   status: OrderStatus;
   guestNote?: string;
   source: "public_menu" | "pos";
@@ -77,18 +89,29 @@ export type Order = {
   lines: OrderLine[];
   totals: {
     subtotal: number;
+    tax?: number;
+    deliveryFee?: number;
     grandTotal: number;
+    taxInclusive?: boolean;
   };
+  loyalty?: { stamps: number; rewardEarned: boolean } | null;
 };
 
 export type OrderingSettings = {
   guestNoteEnabled: boolean;
   maxItemsPerOrder: number;
   soundEnabled: boolean;
+  deliveryMinOrder: number;
+  deliveryAreas: DeliveryArea[];
+  loyaltyEnabled: boolean;
+  stampsForReward: number;
+  seasonalNote?: string;
+  seasonalNoteEn?: string;
   alerts?: {
     alertOnDelivery: boolean;
     alertOnDineIn: boolean;
     alertOnPos: boolean;
+    alertOnPickup?: boolean;
     whatsappPhone: string;
     callMeBotApiKey: string;
     webhookUrl: string;
@@ -133,10 +156,17 @@ function emptyStore(): OrderingStore {
       guestNoteEnabled: true,
       maxItemsPerOrder: 50,
       soundEnabled: true,
+      deliveryMinOrder: 0,
+      deliveryAreas: [],
+      loyaltyEnabled: false,
+      stampsForReward: 10,
+      seasonalNote: "",
+      seasonalNoteEn: "",
       alerts: {
         alertOnDelivery: true,
         alertOnDineIn: false,
         alertOnPos: false,
+        alertOnPickup: true,
         whatsappPhone: "",
         callMeBotApiKey: "",
         webhookUrl: "",
@@ -153,10 +183,25 @@ function normalizeAlerts(
     alertOnDelivery: raw?.alertOnDelivery !== false,
     alertOnDineIn: Boolean(raw?.alertOnDineIn),
     alertOnPos: Boolean(raw?.alertOnPos),
+    alertOnPickup: raw?.alertOnPickup !== false,
     whatsappPhone: String(raw?.whatsappPhone || "").trim(),
     callMeBotApiKey: String(raw?.callMeBotApiKey || "").trim(),
     webhookUrl: String(raw?.webhookUrl || "").trim(),
   };
+}
+
+function normalizeAreas(raw: unknown): DeliveryArea[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a) => a && a.name)
+    .map((a: DeliveryArea, i: number) => ({
+      id: String(a.id || `area-${i}`),
+      name: String(a.name),
+      nameAr: String(a.nameAr || a.name),
+      fee: Math.max(0, Number(a.fee) || 0),
+      active: a.active !== false,
+      sortOrder: Number(a.sortOrder) || i + 1,
+    }));
 }
 
 function normalizeStore(raw: Partial<OrderingStore>): OrderingStore {
@@ -174,6 +219,18 @@ function normalizeStore(raw: Partial<OrderingStore>): OrderingStore {
           ? Math.min(200, Math.floor(Number(raw.settings?.maxItemsPerOrder)))
           : 50,
       soundEnabled: raw.settings?.soundEnabled !== false,
+      deliveryMinOrder: Math.max(
+        0,
+        Number(raw.settings?.deliveryMinOrder) || 0
+      ),
+      deliveryAreas: normalizeAreas(raw.settings?.deliveryAreas),
+      loyaltyEnabled: Boolean(raw.settings?.loyaltyEnabled),
+      stampsForReward: Math.max(
+        2,
+        Math.min(50, Number(raw.settings?.stampsForReward) || 10)
+      ),
+      seasonalNote: String(raw.settings?.seasonalNote || ""),
+      seasonalNoteEn: String(raw.settings?.seasonalNoteEn || ""),
       alerts: normalizeAlerts(raw.settings?.alerts),
     },
     orders: Array.isArray(raw.orders) ? raw.orders : [],
@@ -211,6 +268,12 @@ export async function getOrderingSettings(): Promise<OrderingSettings> {
     maxItemsPerOrder:
       feat?.maxItemsPerOrder || store.settings.maxItemsPerOrder || 50,
     soundEnabled: store.settings.soundEnabled,
+    deliveryMinOrder: store.settings.deliveryMinOrder || 0,
+    deliveryAreas: store.settings.deliveryAreas || [],
+    loyaltyEnabled: Boolean(store.settings.loyaltyEnabled),
+    stampsForReward: store.settings.stampsForReward || 10,
+    seasonalNote: store.settings.seasonalNote || "",
+    seasonalNoteEn: store.settings.seasonalNoteEn || "",
     alerts: normalizeAlerts(store.settings.alerts),
   };
 }
@@ -446,7 +509,8 @@ function pricedLineFromProduct(
   category: Awaited<ReturnType<typeof getCategory>>,
   qty: number,
   selections: OptionSelection[],
-  station: Station
+  station: Station,
+  prep: string[] = []
 ) {
   const missing = missingRequiredOptions(product, selections);
   if (missing.length) {
@@ -457,8 +521,42 @@ function pricedLineFromProduct(
   const pricing = priceDisc(base, discount);
   const extraAr = optionLabels(product, selections, "ar");
   const extraEn = optionLabels(product, selections, "en");
-  const suffixAr = extraAr.length ? ` · ${extraAr.join(" · ")}` : "";
-  const suffixEn = extraEn.length ? ` · ${extraEn.join(" · ")}` : "";
+  const prepAr = prep.map((id) => {
+    const map: Record<string, string> = {
+      spicy_hot: "حار",
+      spicy_mild: "خفيف حرّ",
+      no_onion: "من غير بصل",
+      no_garlic: "من غير توم",
+      well: "مستوي",
+      medium: "متوسط",
+      rare: "نصف نيء",
+    };
+    return map[id] || id;
+  });
+  const prepEn = prep.map((id) => {
+    const map: Record<string, string> = {
+      spicy_hot: "Spicy",
+      spicy_mild: "Mild spice",
+      no_onion: "No onion",
+      no_garlic: "No garlic",
+      well: "Well done",
+      medium: "Medium",
+      rare: "Rare",
+    };
+    return map[id] || id;
+  });
+  const bitsAr = [...extraAr, ...prepAr];
+  const bitsEn = [...extraEn, ...prepEn];
+  const suffixAr = bitsAr.length ? ` · ${bitsAr.join(" · ")}` : "";
+  const suffixEn = bitsEn.length ? ` · ${bitsEn.join(" · ")}` : "";
+  const combo = Array.isArray(product.comboItems) ? product.comboItems : [];
+  const stockItems =
+    combo.length > 0
+      ? combo.map((c) => ({
+          itemId: c.productId,
+          qty: Math.max(1, Number(c.qty) || 1) * qty,
+        }))
+      : [{ itemId: product.id, qty }];
   return {
     itemId: product.id,
     name: `${product.nameEn || product.name}${suffixEn}`,
@@ -467,6 +565,8 @@ function pricedLineFromProduct(
     unitPrice: pricing.final,
     lineTotal: Math.round(pricing.final * qty * 100) / 100,
     station,
+    prep,
+    stockItems,
   } satisfies OrderLine;
 }
 
@@ -474,9 +574,20 @@ export type CreateOrderInput = {
   channel: OrderChannel;
   tableId?: string;
   zoneId?: string;
-  delivery?: { phone: string; addressLine: string; notes?: string };
+  delivery?: {
+    phone: string;
+    addressLine: string;
+    notes?: string;
+    areaId?: string;
+  };
+  pickup?: { phone: string; name?: string };
   guestNote?: string;
-  lines: { itemId: string; qty: number; options?: OptionSelection[] }[];
+  lines: {
+    itemId: string;
+    qty: number;
+    options?: OptionSelection[];
+    prep?: string[];
+  }[];
   branchId?: string | null;
   /** honeypot — must be empty */
   website?: string;
@@ -497,7 +608,14 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (input.channel === "delivery" && !feat.deliveryEnabled) {
     throw new Error("التوصيل غير مفعّل");
   }
-  if (input.channel !== "dine_in" && input.channel !== "delivery") {
+  if (input.channel === "pickup" && !feat.pickupEnabled) {
+    throw new Error("الاستلام من الفرع غير مفعّل");
+  }
+  if (
+    input.channel !== "dine_in" &&
+    input.channel !== "delivery" &&
+    input.channel !== "pickup"
+  ) {
     throw new Error("قناة طلب غير صالحة");
   }
   if (!input.lines?.length) {
@@ -518,6 +636,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   let tableId: string | null = null;
   let zoneId: string | null = null;
   let delivery: DeliveryInfo | null = null;
+  let pickup: PickupInfo | null = null;
+  let deliveryFee = 0;
 
   if (input.channel === "dine_in") {
     if (!input.tableId) throw new Error("اختر طاولة");
@@ -536,6 +656,15 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       zoneId = zone.id;
       zoneLabel = zone.nameAr || zone.name;
     }
+  } else if (input.channel === "pickup") {
+    const phone = String(input.pickup?.phone || input.delivery?.phone || "").trim();
+    if (!phone || phone.length < 8) {
+      throw new Error("رقم الموبايل مطلوب للاستلام");
+    }
+    pickup = {
+      phone,
+      name: input.pickup?.name?.trim() || undefined,
+    };
   } else {
     const phone = String(input.delivery?.phone || "").trim();
     const addressLine = String(input.delivery?.addressLine || "").trim();
@@ -545,10 +674,19 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     if (!addressLine || addressLine.length < 5) {
       throw new Error("العنوان مطلوب");
     }
+    const areas = (settings.deliveryAreas || []).filter((a) => a.active);
+    let area: DeliveryArea | undefined;
+    if (areas.length) {
+      area = areas.find((a) => a.id === input.delivery?.areaId);
+      if (!area) throw new Error("اختر منطقة التوصيل");
+      deliveryFee = area.fee;
+    }
     delivery = {
       phone,
       addressLine,
       notes: input.delivery?.notes?.trim() || undefined,
+      areaId: area?.id,
+      areaName: area ? area.nameAr || area.name : undefined,
     };
   }
 
@@ -571,20 +709,41 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     const station = product.categoryId
       ? await resolveStationForCategory(product.categoryId)
       : "unassigned";
+    const prep = Array.isArray(raw.prep) ? raw.prep.map(String).slice(0, 8) : [];
     lines.push(
-      pricedLineFromProduct(product, category, qty, selections, station)
+      pricedLineFromProduct(product, category, qty, selections, station, prep)
     );
   }
   if (!lines.length) throw new Error("السلة فارغة");
 
-  await deductStock(
-    lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
-    branchId
-  );
-
   const subtotal = Math.round(
     lines.reduce((s, l) => s + l.lineTotal, 0) * 100
   ) / 100;
+
+  if (input.channel === "delivery" && settings.deliveryMinOrder > 0) {
+    if (subtotal + 0.001 < settings.deliveryMinOrder) {
+      throw new Error(
+        `الحد الأدنى للتوصيل ${settings.deliveryMinOrder}`
+      );
+    }
+  }
+
+  const stockMoves = lines.flatMap(
+    (l) => l.stockItems || [{ itemId: l.itemId, qty: l.qty }]
+  );
+  await deductStock(stockMoves, branchId);
+
+  const totals = moneyTotals(subtotal, {
+    deliveryFee,
+    taxPercent: brand.taxPercent,
+    taxInclusive: brand.taxInclusive !== false,
+  });
+
+  const loyaltyPhone = delivery?.phone || pickup?.phone || "";
+  let loyalty: Order["loyalty"] = null;
+  if (settings.loyaltyEnabled && loyaltyPhone) {
+    loyalty = await addStamp(loyaltyPhone, settings.stampsForReward);
+  }
 
   const now = new Date().toISOString();
   let code = makeOrderCode();
@@ -605,6 +764,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     tableLabel,
     zoneLabel,
     delivery,
+    pickup,
     status: "new",
     guestNote:
       settings.guestNoteEnabled && input.guestNote
@@ -613,7 +773,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     source: "public_menu",
     branchId,
     lines,
-    totals: { subtotal, grandTotal: subtotal },
+    totals,
+    loyalty,
   };
 
   store.orders.unshift(order);
@@ -714,12 +875,16 @@ export async function createPosOrder(
   if (!lines.length) throw new Error("Ticket is empty");
 
   await deductStock(
-    lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+    lines.flatMap((l) => l.stockItems || [{ itemId: l.itemId, qty: l.qty }]),
     branchId
   );
 
   const subtotal =
     Math.round(lines.reduce((s, l) => s + l.lineTotal, 0) * 100) / 100;
+  const totals = moneyTotals(subtotal, {
+    taxPercent: brand.taxPercent,
+    taxInclusive: brand.taxInclusive !== false,
+  });
 
   const now = new Date().toISOString();
   let code = makeOrderCode();
@@ -753,7 +918,7 @@ export async function createPosOrder(
     paymentMethod: method,
     paidAt: now,
     lines,
-    totals: { subtotal, grandTotal: subtotal },
+    totals,
   };
 
   store.orders.unshift(order);
@@ -801,7 +966,9 @@ export async function updateOrderStatus(
   }
   if (status === "cancelled" && order.status !== "cancelled") {
     await restoreStock(
-      order.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+      order.lines.flatMap(
+        (l) => l.stockItems || [{ itemId: l.itemId, qty: l.qty }]
+      ),
       order.branchId || undefined
     );
   }
@@ -828,7 +995,11 @@ export function publicOrderView(order: Order) {
       ? {
           phoneMasked: maskPhone(order.delivery.phone),
           addressLine: order.delivery.addressLine,
+          areaName: order.delivery.areaName,
         }
+      : null,
+    pickup: order.pickup
+      ? { phoneMasked: maskPhone(order.pickup.phone), name: order.pickup.name }
       : null,
     guestNote: order.guestNote,
     lines: order.lines.map((l) => ({
@@ -838,8 +1009,10 @@ export function publicOrderView(order: Order) {
       unitPrice: l.unitPrice,
       lineTotal: l.lineTotal,
       station: l.station,
+      prep: l.prep || [],
     })),
     totals: order.totals,
+    loyalty: order.loyalty || null,
   };
 }
 

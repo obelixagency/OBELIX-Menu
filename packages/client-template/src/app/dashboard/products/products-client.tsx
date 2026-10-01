@@ -14,6 +14,7 @@ import {
 import { formatPrice } from "@/lib/utils";
 import type { Category, DiscountType, Product, ProductOptionGroup } from "@/lib/types";
 import { ProductOptionsEditor } from "@/components/dashboard/product-options-editor";
+import { isoToLocalInput, localInputToIso } from "@/lib/commerce";
 
 export default function ProductsClient() {
   const router = useRouter();
@@ -41,6 +42,12 @@ export default function ProductsClient() {
   const [bulkType, setBulkType] = useState<DiscountType>(null);
   const [bulkValue, setBulkValue] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [prepEnabled, setPrepEnabled] = useState(false);
+  const [comboItems, setComboItems] = useState<{ productId: string; qty: number }[]>(
+    []
+  );
+  const [offerFrom, setOfferFrom] = useState("");
+  const [offerUntil, setOfferUntil] = useState("");
 
   async function load() {
     const [pRes, cRes, bRes] = await Promise.all([
@@ -99,6 +106,10 @@ export default function ProductsClient() {
     setAvailable(true);
     setImage(null);
     setOptionGroups([]);
+    setPrepEnabled(false);
+    setComboItems([]);
+    setOfferFrom("");
+    setOfferUntil("");
   }
 
   function fillForm(p: Product) {
@@ -115,6 +126,10 @@ export default function ProductsClient() {
     setFeatured(p.featured);
     setImage(p.image);
     setOptionGroups(p.optionGroups || []);
+    setPrepEnabled(Boolean(p.prepEnabled));
+    setComboItems(p.comboItems || []);
+    setOfferFrom(isoToLocalInput(p.offerFrom));
+    setOfferUntil(isoToLocalInput(p.offerUntil));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -134,6 +149,10 @@ export default function ProductsClient() {
       featured,
       image,
       optionGroups,
+      prepEnabled,
+      comboItems: comboItems.filter((c) => c.productId && c.qty > 0),
+      offerFrom: localInputToIso(offerFrom),
+      offerUntil: localInputToIso(offerUntil),
     };
     const res = await fetch(
       editingId ? `/api/products/${editingId}` : "/api/products",
@@ -354,6 +373,95 @@ export default function ProductsClient() {
               groups={optionGroups}
               onChange={setOptionGroups}
             />
+            <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={prepEnabled}
+                onChange={(e) => setPrepEnabled(e.target.checked)}
+              />
+              شيبس تحضير (حار / من غير بصل / استواء)
+            </label>
+            <div className="sm:col-span-2 space-y-2 rounded-xl border border-[var(--brand-line)] p-3">
+              <p className="text-sm font-semibold">كومبو / وجبة (خصم مخزون المكوّنات)</p>
+              <p className="text-xs text-[var(--brand-muted)]">
+                اتركه فارغًا لصنف عادي. للكومبو اختر الأصناف والكميات اللي تتنقص من المخزون.
+              </p>
+              {comboItems.map((row, i) => (
+                <div key={`${row.productId}-${i}`} className="flex flex-wrap gap-2">
+                  <select
+                    className="h-11 min-w-[12rem] flex-1 rounded-md border border-black/15 bg-white px-3 text-sm"
+                    value={row.productId}
+                    onChange={(e) =>
+                      setComboItems((rows) =>
+                        rows.map((r, j) =>
+                          j === i ? { ...r, productId: e.target.value } : r
+                        )
+                      )
+                    }
+                  >
+                    <option value="">اختر صنف</option>
+                    {products
+                      .filter((p) => p.id !== editingId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="h-11 w-24"
+                    value={row.qty}
+                    onChange={(e) =>
+                      setComboItems((rows) =>
+                        rows.map((r, j) =>
+                          j === i
+                            ? { ...r, qty: Math.max(1, Number(e.target.value) || 1) }
+                            : r
+                        )
+                      )
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setComboItems((rows) => rows.filter((_, j) => j !== i))
+                    }
+                  >
+                    حذف
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setComboItems((rows) => [...rows, { productId: "", qty: 1 }])
+                }
+              >
+                إضافة مكوّن
+              </Button>
+            </div>
+            <div>
+              <Label htmlFor="ofrom">ظاهر من (اختياري)</Label>
+              <Input
+                id="ofrom"
+                type="datetime-local"
+                value={offerFrom}
+                onChange={(e) => setOfferFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="ountil">ظاهر حتى (اختياري)</Label>
+              <Input
+                id="ountil"
+                type="datetime-local"
+                value={offerUntil}
+                onChange={(e) => setOfferUntil(e.target.value)}
+              />
+            </div>
             <label className="flex min-h-11 items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -480,6 +588,8 @@ export default function ProductsClient() {
                 {(p.optionGroups || []).length
                   ? ` · ${(p.optionGroups || []).length} خيارات`
                   : ""}
+                {(p.comboItems || []).length ? " · كومبو" : ""}
+                {p.prepEnabled ? " · تحضير" : ""}
                 {!p.available && " · غير متاح"}
                 {p.featured && " · مميز"}
               </p>

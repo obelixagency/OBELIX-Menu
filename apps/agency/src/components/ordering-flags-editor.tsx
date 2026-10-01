@@ -17,6 +17,7 @@ const FLAG_KEYS: {
   { key: "orderFromMenu" },
   { key: "tableOrderingEnabled", needsMaster: true },
   { key: "deliveryEnabled", needsMaster: true },
+  { key: "pickupEnabled", needsMaster: true },
   { key: "zonesIndoorOutdoor", needsMaster: true, needsTable: true },
   { key: "cashierScreen", needsMaster: true },
   { key: "kitchenScreen", needsMaster: true },

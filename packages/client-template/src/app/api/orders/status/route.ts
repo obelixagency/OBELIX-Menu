@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readBrand } from "@/lib/brand";
+import { listContacts } from "@/lib/menu-data";
+import {
+  buildWhatsAppOrderText,
+  waMeUrl,
+} from "@/lib/commerce";
 import {
   checkOrderRateLimit,
   getOrderByCode,
@@ -35,8 +41,31 @@ export async function GET(req: NextRequest) {
       { status: 404, headers: noStoreHeaders() }
     );
   }
+  const brand = await readBrand();
+  const view = publicOrderView(order);
+  const contacts = await listContacts();
+  const wa = contacts.find((c) => c.type === "whatsapp" && c.active);
+  const text = buildWhatsAppOrderText({
+    locale: "ar",
+    storeName: brand.displayName,
+    code: order.code,
+    channel: order.channel,
+    lines: order.lines,
+    grandTotal: order.totals.grandTotal,
+    currency: brand.currency || "EGP",
+    where:
+      order.delivery?.addressLine ||
+      order.tableLabel ||
+      (order.channel === "pickup" ? "استلام من الفرع" : ""),
+  });
+  const whatsappUrl = wa ? waMeUrl(wa.value, text) : null;
   return NextResponse.json(
-    { order: publicOrderView(order) },
+    {
+      order: view,
+      currency: brand.currency || "EGP",
+      taxNumber: brand.taxNumber || null,
+      whatsappUrl,
+    },
     { headers: noStoreHeaders() }
   );
 }

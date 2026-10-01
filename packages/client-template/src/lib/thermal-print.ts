@@ -33,6 +33,10 @@ export type ThermalReceiptInput = {
   when?: Date;
   /** Client Brand Kit for paper — not OBELIX chrome */
   brand?: ClientPrintBrand;
+  tax?: number;
+  taxInclusive?: boolean;
+  taxNumber?: string | null;
+  deliveryFee?: number;
 };
 
 function esc(s: string): string {
@@ -55,6 +59,17 @@ export function buildEscPosText(r: ThermalReceiptInput): string {
       return `${left}\n  ${right} ${r.currency}`;
     })
     .join("\n");
+  const taxLine =
+    r.tax && r.tax > 0
+      ? r.taxInclusive
+        ? `TAX incl.: ${r.tax.toFixed(2)} ${r.currency}`
+        : `TAX: ${r.tax.toFixed(2)} ${r.currency}`
+      : "";
+  const feeLine =
+    r.deliveryFee && r.deliveryFee > 0
+      ? `Delivery: ${r.deliveryFee.toFixed(2)} ${r.currency}`
+      : "";
+  const vatLine = r.taxNumber ? `Tax no: ${r.taxNumber}` : "";
   return [
     r.storeName,
     sep,
@@ -63,8 +78,11 @@ export function buildEscPosText(r: ThermalReceiptInput): string {
     sep,
     lines,
     sep,
+    taxLine,
+    feeLine,
     `TOTAL: ${r.total.toFixed(2)} ${r.currency}`,
     `Pay: ${r.method.toUpperCase()}`,
+    vatLine,
     r.note ? `Note: ${r.note}` : "",
     sep,
     r.storeName,
@@ -82,6 +100,15 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
   const when = r.when || new Date();
   const codeLabel = locale === "ar" ? "الكود" : "Code";
   const totalLabel = locale === "ar" ? "الإجمالي" : "Total";
+  const taxLabel =
+    locale === "ar"
+      ? r.taxInclusive
+        ? "شامل الضريبة"
+        : "الضريبة"
+      : r.taxInclusive
+        ? "Tax incl."
+        : "Tax";
+  const feeLabel = locale === "ar" ? "توصيل" : "Delivery";
   const primary = r.brand?.primary || "#1a1410";
   const accent = r.brand?.accent || "#D4A017";
   const logo = r.brand?.logoUrl
@@ -144,8 +171,19 @@ export function printThermalReceipt(r: ThermalReceiptInput): void {
   <p class="muted">${codeLabel}: ${esc(r.code)}</p>
   <p class="muted">${esc(when.toLocaleString(locale === "ar" ? "ar-EG" : "en-GB"))}</p>
   <table>${rows}</table>
+  ${
+    r.tax && r.tax > 0
+      ? `<p class="muted">${esc(taxLabel)}: ${r.tax.toFixed(2)} ${esc(r.currency)}</p>`
+      : ""
+  }
+  ${
+    r.deliveryFee && r.deliveryFee > 0
+      ? `<p class="muted">${esc(feeLabel)}: ${r.deliveryFee.toFixed(2)} ${esc(r.currency)}</p>`
+      : ""
+  }
   <div class="total"><span>${totalLabel}</span><span>${r.total.toFixed(2)} ${esc(r.currency)}</span></div>
   <p class="pay">${esc(r.method.toUpperCase())}</p>
+  ${r.taxNumber ? `<p class="muted">${locale === "ar" ? "الرقم الضريبي" : "Tax no."}: ${esc(r.taxNumber)}</p>` : ""}
   ${r.note ? `<p class="muted">${esc(r.note)}</p>` : ""}
   <p class="cut">— ${esc(r.storeName)} —</p>
   <script>window.onload=function(){window.focus();window.print();}</script>

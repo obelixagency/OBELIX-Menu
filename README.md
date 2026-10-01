@@ -109,14 +109,14 @@ PORT=3001 docker compose up -d --build
 
 Shared / Node hosting is not recommended for the agency monorepo; a single client package may run as a Node app only if the host allows Node 20+, writable `data/` + `uploads/`, and a custom start command — details in `HOSTINGER.md` §5.
 
-## Ordering extension point
+## Ordering (when agency enables it)
 
-v1 menus are view-only. The stub lives at:
+Agency flags on the client Brand Kit turn on cart, dine-in, delivery, **pickup**, POS, inventory, and purchasing. Owner dashboard then sets tax, loyalty stamps, delivery areas, seasonal note, combos, and prep chips.
 
-- `packages/client-template/src/lib/extensions/ordering.ts`
-- `data/brand.json` → `extensions.ordering.enabled`
-
-Leave it disabled until a later phase (WhatsApp / cart).
+- Pickup is an agency flag (`pickupEnabled`), same pattern as delivery.
+- Tax, loyalty, delivery fees, and seasonal copy live in the **client owner** settings — not extra agency flags.
+- Online pay (Paymob / Fawry / Tap / Moyasar) is a stub until gateway keys exist.
+- POS chrome is frozen; tax only appears on totals and the thermal receipt.
 
 ## License
 

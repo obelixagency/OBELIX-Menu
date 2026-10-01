@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
       channels: {
         table: hasTableOrdering(features),
         delivery: hasDeliveryOrdering(features),
+        pickup: features.pickupEnabled,
       },
     },
     { headers: noStoreHeaders() }
@@ -115,6 +116,24 @@ export async function PATCH(req: NextRequest) {
     }
     if (body.alerts && typeof body.alerts === "object") {
       patch.alerts = body.alerts;
+    }
+    if (body.deliveryMinOrder !== undefined) {
+      patch.deliveryMinOrder = Number(body.deliveryMinOrder) || 0;
+    }
+    if (Array.isArray(body.deliveryAreas)) {
+      patch.deliveryAreas = body.deliveryAreas;
+    }
+    if (typeof body.loyaltyEnabled === "boolean") {
+      patch.loyaltyEnabled = body.loyaltyEnabled;
+    }
+    if (body.stampsForReward !== undefined) {
+      patch.stampsForReward = Number(body.stampsForReward) || 10;
+    }
+    if (body.seasonalNote !== undefined) {
+      patch.seasonalNote = String(body.seasonalNote);
+    }
+    if (body.seasonalNoteEn !== undefined) {
+      patch.seasonalNoteEn = String(body.seasonalNoteEn);
     }
     const settings = await updateOrderingSettings(patch);
     return NextResponse.json({ settings }, { headers: noStoreHeaders() });
