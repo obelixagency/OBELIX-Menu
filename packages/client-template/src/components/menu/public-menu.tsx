@@ -26,6 +26,10 @@ import { PublicMenuFooter } from "@/components/menu/public-footer";
 import { CartProvider, useCart } from "@/components/menu/cart-context";
 import { CartCheckout } from "@/components/menu/cart-checkout";
 import { OptionPicker } from "@/components/menu/option-picker";
+import {
+  isOrderingEnabled,
+  normalizeOrderingFeatures,
+} from "@/lib/extensions/ordering";
 
 type Props = {
   brand: BrandConfig;

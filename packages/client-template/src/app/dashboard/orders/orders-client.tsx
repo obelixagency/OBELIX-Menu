@@ -8,7 +8,7 @@ type Order = {
   id: string;
   code: string;
   createdAt: string;
-  channel: "dine_in" | "delivery" | "pos";
+  channel: "dine_in" | "delivery" | "pickup" | "pos";
   tableLabel?: string | null;
   zoneLabel?: string | null;
   delivery?: { phone: string; addressLine: string } | null;
@@ -87,6 +87,7 @@ export function OrdersDashboardClient({ currency }: { currency: string }) {
           <option value="all">كل القنوات</option>
           <option value="dine_in">طاولة</option>
           <option value="delivery">توصيل</option>
+          <option value="pickup">استلام</option>
           <option value="pos">POS</option>
         </select>
         <Link

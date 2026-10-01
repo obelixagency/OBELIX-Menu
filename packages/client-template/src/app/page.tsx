@@ -16,6 +16,7 @@ import {
 } from "@/lib/branches-data";
 import { getOrderingSettings } from "@/lib/ordering-data";
 import { inSchedule } from "@/lib/commerce";
+import { PublicMenu } from "@/components/menu/public-menu";
 
 type Props = { searchParams: Promise<{ branch?: string }> };
 
