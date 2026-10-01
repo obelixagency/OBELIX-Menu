@@ -34,6 +34,14 @@ export async function PATCH(req: NextRequest) {
             ? String(body.menuBackgroundUrl)
             : null
           : brand.menuBackgroundUrl,
+      slogan:
+        body.slogan !== undefined
+          ? String(body.slogan || "").trim() || null
+          : brand.slogan,
+      sloganEn:
+        body.sloganEn !== undefined
+          ? String(body.sloganEn || "").trim() || null
+          : brand.sloganEn,
       extensions: {
         ...brand.extensions,
         ordering: brand.extensions.ordering,

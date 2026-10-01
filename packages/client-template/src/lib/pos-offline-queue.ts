@@ -13,14 +13,20 @@ export type PendingPosOrder = {
   tableId: string | null;
   guestNote?: string;
   branchId?: string;
-  lines: { itemId: string; qty: number }[];
+  lines: {
+    itemId: string;
+    qty: number;
+    options?: { groupId: string; valueId: string }[];
+  }[];
   /** Snapshot for receipt while offline */
   receiptLines: {
     itemId: string;
+    lineKey?: string;
     name: string;
     nameEn: string;
     qty: number;
     unitPrice: number;
+    options?: { groupId: string; valueId: string }[];
   }[];
   total: number;
   status: "pending" | "syncing" | "failed";

@@ -65,9 +65,9 @@ export default function AgencyLoginPage() {
         </div>
       </div>
 
-      <form
+        <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-white/10 bg-[var(--obx-bg-card)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.45)] sm:p-7"
+        className="w-full max-w-sm space-y-5 rounded-2xl border border-white/10 bg-[var(--obx-bg-card)] p-7 shadow-[0_20px_50px_rgba(0,0,0,0.45)] sm:p-8"
         autoComplete="on"
       >
         <div>

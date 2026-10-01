@@ -103,7 +103,10 @@ export default function NewClientForm() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-xl">
+    <main className="mx-auto w-full max-w-2xl space-y-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-white/40">
+        1 Profile · 2 Brand kit · 3 Language · 4 Features
+      </p>
       <Card>
         <CardHeader>
           <CardTitle>{t.newClient.title}</CardTitle>

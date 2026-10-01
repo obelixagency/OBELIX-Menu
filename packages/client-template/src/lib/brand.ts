@@ -26,6 +26,8 @@ const DEFAULT_BRAND: BrandConfig = {
   languages: "both",
   notificationEmail: null,
   menuBackgroundUrl: null,
+  slogan: null,
+  sloganEn: null,
   extensions: {
     ordering: DEFAULT_ORDERING_FEATURES,
     payments: normalizePayments(null),
@@ -64,6 +66,9 @@ export function brandCssVars(brand: BrandConfig): Record<string, string> {
     "--brand-accent": brand.colors.accent,
     "--brand-surface": brand.colors.surface,
     "--brand-ink": "#1a1410",
+    "--brand-muted": "#6B5E52",
+    "--brand-line": "rgba(26,20,16,0.08)",
+    "--brand-card": "#ffffff",
   };
 }
 

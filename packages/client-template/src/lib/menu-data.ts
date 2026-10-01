@@ -282,6 +282,7 @@ function normalizeMenu(raw: Partial<MenuData> & { categories?: Category[] }): Me
     ...p,
     discountType: p.discountType ?? null,
     discountValue: p.discountValue ?? 0,
+    optionGroups: Array.isArray(p.optionGroups) ? p.optionGroups : [],
   }));
   return {
     categories,
@@ -289,7 +290,13 @@ function normalizeMenu(raw: Partial<MenuData> & { categories?: Category[] }): Me
     contacts: raw.contacts || [],
     reviews: raw.reviews || [],
     banners: raw.banners || [],
-    meta: raw.meta,
+    meta: {
+      ...(raw.meta || {}),
+      promoEnabled:
+        typeof raw.meta?.promoEnabled === "boolean"
+          ? raw.meta.promoEnabled
+          : true,
+    },
   };
 }
 
@@ -431,6 +438,7 @@ export async function createProduct(
     available: input.available ?? true,
     featured: input.featured ?? false,
     sortOrder: input.sortOrder ?? menu.products.length + 1,
+    optionGroups: input.optionGroups || [],
   };
   menu.products.push(product);
   await saveMenu(menu);
@@ -566,6 +574,38 @@ export async function deleteReview(id: string) {
   const menu = await ensureMenu();
   menu.reviews = menu.reviews.filter((r) => r.id !== id);
   await saveMenu(menu);
+}
+
+export async function isPromoEnabled(): Promise<boolean> {
+  const menu = await ensureMenu();
+  return menu.meta?.promoEnabled !== false;
+}
+
+export async function setPromoEnabled(enabled: boolean) {
+  const menu = await ensureMenu();
+  menu.meta = { ...(menu.meta || {}), promoEnabled: enabled };
+  await saveMenu(menu);
+  return menu.meta;
+}
+
+export async function applyProductDiscounts(
+  productIds: string[],
+  discountType: Product["discountType"],
+  discountValue: number
+) {
+  const menu = await ensureMenu();
+  const set = new Set(productIds);
+  menu.products = menu.products.map((p) =>
+    set.has(p.id)
+      ? {
+          ...p,
+          discountType: discountType || null,
+          discountValue: discountType ? Number(discountValue) || 0 : 0,
+        }
+      : p
+  );
+  await saveMenu(menu);
+  return menu.products.filter((p) => set.has(p.id));
 }
 
 export async function listBanners() {

@@ -3,6 +3,7 @@ import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { hasPurchasing } from "@/lib/extensions/ordering";
 import { PurchasingClient } from "./purchasing-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,10 @@ export default async function PurchasingPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">المشتريات والموردون</h1>
-        <p className="text-sm text-black/50">
-          أوامر شراء، استلام للمخزون، أرصدة موردين، ومقارنة مبيعات مقابل تكلفة الاستلام — بدون محاسبة ضريبية كاملة.
-        </p>
-      </div>
+      <PageHeader
+        title="المشتريات"
+        description="موردون، أوامر شراء، استلام للمخزون، وأرصدة — بدون محاسبة ضريبية كاملة."
+      />
       <PurchasingClient />
     </div>
   );

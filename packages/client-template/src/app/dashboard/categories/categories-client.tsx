@@ -101,10 +101,9 @@ export default function CategoriesClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">الفئات</h1>
-        <p className="text-xs text-black/45">
-          فئات متداخلة بلا حد. خصم الفئة يطبّق على أصنافها ما لم يكن للصنف خصم
-          خاص (خصم الصنف أقوى).
+        <h1 className="text-2xl font-bold leading-8">الفئات</h1>
+        <p className="mt-1 text-sm text-[var(--brand-muted)]">
+          فئات متداخلة. خصم الفئة يطبّق على أصنافها ما لم يكن للصنف خصم خاص.
         </p>
       </div>
 
@@ -168,7 +167,7 @@ export default function CategoriesClient() {
               >
                 <option value="">بدون</option>
                 <option value="percent">نسبة %</option>
-                <option value="fixed">مبلغ ثابت ج.م</option>
+                <option value="price">سعر جديد (رقم مكان رقم)</option>
               </select>
             </div>
             <div>
@@ -208,7 +207,7 @@ export default function CategoriesClient() {
               <p className="text-xs text-black/45">
                 {c.nameEn ? `${c.nameEn} · ` : ""}
                 {c.discountType && c.discountValue
-                  ? `خصم: ${c.discountType === "percent" ? `${c.discountValue}%` : `${c.discountValue} ج.م`}`
+                  ? `خصم: ${c.discountType === "percent" ? `${c.discountValue}%` : c.discountType === "price" ? `سعر ${c.discountValue}` : `${c.discountValue} ج.م`}`
                   : "بدون خصم فئة"}
               </p>
             </div>

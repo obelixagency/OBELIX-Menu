@@ -47,9 +47,11 @@ export default async function RootLayout({
     <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={`${cairo.variable} font-sans antialiased`}>
         <AgencyLocaleProvider initialLocale={locale}>
-          <div className="mx-auto min-h-screen w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+          <div className="relative flex min-h-screen w-full">
             <AgencyHeader />
-            {children}
+            <div className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+              <div className="mx-auto w-full max-w-6xl">{children}</div>
+            </div>
           </div>
         </AgencyLocaleProvider>
       </body>

@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatPrice } from "@/lib/utils";
-import type { Category, DiscountType, Product } from "@/lib/types";
+import type { Category, DiscountType, Product, ProductOptionGroup } from "@/lib/types";
+import { ProductOptionsEditor } from "@/components/dashboard/product-options-editor";
 
 export default function ProductsClient() {
   const router = useRouter();
@@ -34,6 +35,12 @@ export default function ProductsClient() {
   const [featured, setFeatured] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [filter, setFilter] = useState<"all" | "available" | "hidden" | "featured">("all");
+  const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [bulkType, setBulkType] = useState<DiscountType>(null);
+  const [bulkValue, setBulkValue] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
     const [pRes, cRes, bRes] = await Promise.all([
@@ -79,35 +86,8 @@ export default function ProductsClient() {
     }
   }
 
-  async function onCreate(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const res = await fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: languages === "en" ? nameEn || name : name,
-        nameEn: languages !== "ar" ? nameEn : undefined,
-        description: languages !== "en" ? description : undefined,
-        descriptionEn: languages !== "ar" ? descriptionEn : undefined,
-        price: Number(price),
-        categoryId,
-        discountType: discountType || null,
-        discountValue: discountValue ? Number(discountValue) : 0,
-        available,
-        featured,
-        image,
-      }),
-    });
-    const data = await res.json();
-    if (res.status === 401) {
-      router.push("/dashboard/login");
-      return;
-    }
-    if (!res.ok) {
-      setError(data.error || "فشل");
-      return;
-    }
+  function resetForm() {
+    setEditingId(null);
     setName("");
     setNameEn("");
     setDescription("");
@@ -118,6 +98,61 @@ export default function ProductsClient() {
     setFeatured(false);
     setAvailable(true);
     setImage(null);
+    setOptionGroups([]);
+  }
+
+  function fillForm(p: Product) {
+    setEditingId(p.id);
+    setName(p.name);
+    setNameEn(p.nameEn || "");
+    setDescription(p.description || "");
+    setDescriptionEn(p.descriptionEn || "");
+    setPrice(String(p.price));
+    setCategoryId(p.categoryId);
+    setDiscountType(p.discountType || null);
+    setDiscountValue(p.discountValue ? String(p.discountValue) : "");
+    setAvailable(p.available);
+    setFeatured(p.featured);
+    setImage(p.image);
+    setOptionGroups(p.optionGroups || []);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const payload = {
+      name: languages === "en" ? nameEn || name : name,
+      nameEn: languages !== "ar" ? nameEn : undefined,
+      description: languages !== "en" ? description : undefined,
+      descriptionEn: languages !== "ar" ? descriptionEn : undefined,
+      price: Number(price),
+      categoryId,
+      discountType: discountType || null,
+      discountValue: discountValue ? Number(discountValue) : 0,
+      available,
+      featured,
+      image,
+      optionGroups,
+    };
+    const res = await fetch(
+      editingId ? `/api/products/${editingId}` : "/api/products",
+      {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await res.json();
+    if (res.status === 401) {
+      router.push("/dashboard/login");
+      return;
+    }
+    if (!res.ok) {
+      setError(data.error || "فشل");
+      return;
+    }
+    resetForm();
     await load();
   }
 
@@ -138,20 +173,53 @@ export default function ProductsClient() {
     await load();
   }
 
-  if (loading) return <p className="text-sm text-black/50">جاري التحميل…</p>;
+  if (loading) return <p className="text-sm text-[var(--brand-muted)]">جاري التحميل…</p>;
+
+  const filtered = products.filter((p) => {
+    if (filter === "available") return p.available;
+    if (filter === "hidden") return !p.available;
+    if (filter === "featured") return p.featured;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">المنتجات</h1>
-        <p className="text-xs text-black/45">
+        <h1 className="text-2xl font-bold leading-8">المنتجات</h1>
+        <p className="mt-1 text-sm text-[var(--brand-muted)]">
           خصم الصنف يتجاوز خصم الفئة إن وُجد الاثنان.
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ["all", "الكل"],
+            ["available", "متاح"],
+            ["hidden", "مخفي"],
+            ["featured", "مميز"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={`min-h-10 rounded-full px-3.5 text-xs font-semibold ${
+              filter === key
+                ? "bg-[var(--brand-primary)] text-white"
+                : "border border-[var(--brand-line)] bg-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">إضافة منتج</CardTitle>
+          <CardTitle className="text-base">
+            {editingId ? "تعديل المنتج" : "إضافة منتج"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onCreate} className="grid gap-3 sm:grid-cols-2">
@@ -221,11 +289,13 @@ export default function ProductsClient() {
               >
                 <option value="">بدون (ورث فئة إن وُجد)</option>
                 <option value="percent">نسبة %</option>
-                <option value="fixed">مبلغ ثابت ج.م</option>
+                <option value="price">سعر جديد (رقم مكان رقم)</option>
               </select>
             </div>
             <div>
-              <Label htmlFor="dval">قيمة الخصم</Label>
+              <Label htmlFor="dval">
+                {discountType === "price" ? "السعر بعد الخصم" : "قيمة الخصم"}
+              </Label>
               <Input
                 id="dval"
                 type="number"
@@ -280,6 +350,10 @@ export default function ProductsClient() {
                 />
               </div>
             )}
+            <ProductOptionsEditor
+              groups={optionGroups}
+              onChange={setOptionGroups}
+            />
             <label className="flex min-h-11 items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -296,22 +370,96 @@ export default function ProductsClient() {
               />
               مميز
             </label>
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 flex flex-wrap gap-2">
               <Button type="submit" className="w-full sm:w-auto">
-                حفظ المنتج
+                {editingId ? "حفظ التعديل" : "حفظ المنتج"}
               </Button>
+              {editingId && (
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  إلغاء
+                </Button>
+              )}
             </div>
           </form>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </CardContent>
       </Card>
 
-      <ul className="space-y-2">
-        {products.map((p) => (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">خصم على عدة منتجات</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-end gap-2">
+          <div>
+            <Label>النوع</Label>
+            <select
+              value={bulkType || ""}
+              onChange={(e) =>
+                setBulkType((e.target.value || null) as DiscountType)
+              }
+              className="flex h-11 rounded-xl border border-[var(--brand-line)] bg-white px-3 text-sm"
+            >
+              <option value="">إزالة الخصم</option>
+              <option value="percent">نسبة %</option>
+              <option value="price">سعر جديد</option>
+            </select>
+          </div>
+          <div>
+            <Label>القيمة</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.5"
+              value={bulkValue}
+              onChange={(e) => setBulkValue(e.target.value)}
+              disabled={!bulkType}
+              dir="ltr"
+              className="text-left"
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={async () => {
+              const productIds = Object.entries(selected)
+                .filter(([, v]) => v)
+                .map(([id]) => id);
+              if (!productIds.length) {
+                setError("اختر منتجات أولاً");
+                return;
+              }
+              const res = await fetch("/api/products/discounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  productIds,
+                  discountType: bulkType,
+                  discountValue: Number(bulkValue) || 0,
+                }),
+              });
+              if (res.status === 401) router.push("/dashboard/login");
+              setSelected({});
+              await load();
+            }}
+          >
+            تطبيق على المحدد
+          </Button>
+        </CardContent>
+      </Card>
+
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {filtered.map((p) => (
           <li
             key={p.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-black/8 bg-white px-3 py-2"
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--brand-line)] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(26,20,16,.06)]"
           >
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={!!selected[p.id]}
+              onChange={(e) =>
+                setSelected((s) => ({ ...s, [p.id]: e.target.checked }))
+              }
+            />
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--brand-surface)]">
               {p.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -327,13 +475,19 @@ export default function ProductsClient() {
               <p className="text-xs text-black/45">
                 {formatPrice(p.price, currency, "ar")}
                 {p.discountType && p.discountValue
-                  ? ` · خصم ${p.discountType === "percent" ? `${p.discountValue}%` : formatPrice(p.discountValue, currency, "ar")}`
+                  ? ` · خصم ${p.discountType === "percent" ? `${p.discountValue}%` : p.discountType === "price" ? `سعر ${formatPrice(p.discountValue, currency, "ar")}` : formatPrice(p.discountValue, currency, "ar")}`
+                  : ""}
+                {(p.optionGroups || []).length
+                  ? ` · ${(p.optionGroups || []).length} خيارات`
                   : ""}
                 {!p.available && " · غير متاح"}
                 {p.featured && " · مميز"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => fillForm(p)}>
+                تعديل
+              </Button>
               <Button
                 size="sm"
                 variant="outline"

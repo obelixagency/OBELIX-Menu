@@ -7,11 +7,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[var(--brand-primary)] text-white hover:opacity-90",
+        default:
+          "rounded-xl bg-[var(--brand-primary)] text-white hover:opacity-90",
         secondary:
-          "bg-[var(--brand-surface)] text-[var(--brand-ink)] border border-black/10 hover:bg-black/5",
+          "rounded-xl bg-white text-[var(--brand-ink)] border border-[var(--brand-line)] hover:bg-black/5",
         outline:
-          "border border-black/15 bg-transparent hover:bg-black/5 text-[var(--brand-ink)]",
+          "rounded-xl border border-[var(--brand-line)] bg-transparent hover:bg-black/5 text-[var(--brand-ink)]",
         ghost: "hover:bg-black/5 text-[var(--brand-ink)]",
         danger: "bg-red-600 text-white hover:bg-red-700",
       },

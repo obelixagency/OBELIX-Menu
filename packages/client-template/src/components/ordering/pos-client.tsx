@@ -8,7 +8,13 @@ import {
   pickLocalized,
   type Locale,
 } from "@/lib/i18n";
-import type { LanguageMode } from "@/lib/types";
+import type { LanguageMode, OptionSelection, ProductOptionGroup } from "@/lib/types";
+import {
+  configuredBasePrice,
+  lineKey,
+  optionLabels,
+  priceAfterDiscount,
+} from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
 import {
   downloadEscPosFile,
@@ -45,9 +51,14 @@ type CatalogProduct = {
   name: string;
   nameEn: string;
   price: number;
+  rawPrice?: number;
+  hasDiscount?: boolean;
+  priceOriginal?: number;
+  discount?: { type: "percent" | "price" | "fixed"; value: number } | null;
   image: string | null;
   stockQty?: number | null;
   outOfStock?: boolean;
+  optionGroups?: ProductOptionGroup[];
 };
 
 type CatalogCategory = {
@@ -73,11 +84,13 @@ type BrandInfo = {
 
 type TicketLine = {
   itemId: string;
+  lineKey: string;
   name: string;
   nameEn: string;
   qty: number;
   unitPrice: number;
   image?: string | null;
+  options?: OptionSelection[];
 };
 
 type PaymentMethod = "cash" | "card" | "other";
@@ -220,6 +233,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
   const [categoryId, setCategoryId] = useState<string | "all">("all");
   const [tableId, setTableId] = useState<string>("");
   const [lines, setLines] = useState<TicketLine[]>([]);
+  const [picking, setPicking] = useState<CatalogProduct | null>(null);
   const [note, setNote] = useState("");
   const [closing, setClosing] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
@@ -322,7 +336,15 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               setLastReceipt({
                 code,
                 method: row.paymentMethod,
-                lines: row.receiptLines,
+                lines: row.receiptLines.map((l) => ({
+                  itemId: l.itemId,
+                  lineKey: l.lineKey || l.itemId,
+                  name: l.name,
+                  nameEn: l.nameEn,
+                  qty: l.qty,
+                  unitPrice: l.unitPrice,
+                  options: l.options,
+                })),
                 total: row.total,
                 whereLabel: row.tableId || "walk-in",
                 note: row.guestNote,
@@ -507,23 +529,60 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
     [lines]
   );
 
-  function addProduct(p: CatalogProduct) {
+  function addProduct(p: CatalogProduct, selections: OptionSelection[] = []) {
     if (p.outOfStock) {
       setPayError(locale === "ar" ? "نفد المخزون" : "Out of stock");
       return;
     }
+    if ((p.optionGroups || []).length && !selections.length) {
+      setPicking(p);
+      return;
+    }
+    const raw = p.rawPrice ?? p.price;
+    const configured = configuredBasePrice(
+      {
+        id: p.id,
+        categoryId: p.categoryId || "",
+        name: p.name,
+        price: raw,
+        image: p.image,
+        available: true,
+        featured: false,
+        sortOrder: 0,
+        optionGroups: p.optionGroups,
+      },
+      selections
+    );
+    const pricing = priceAfterDiscount(configured, p.discount || null);
+    const extrasAr = optionLabels(
+      { ...p, price: raw, categoryId: p.categoryId || "", image: p.image, available: true, featured: false, sortOrder: 0 },
+      selections,
+      "ar"
+    );
+    const extrasEn = optionLabels(
+      { ...p, price: raw, categoryId: p.categoryId || "", image: p.image, available: true, featured: false, sortOrder: 0 },
+      selections,
+      "en"
+    );
+    const key = lineKey(p.id, selections);
     setLastCode(null);
     setPayError(null);
     setLines((prev) => {
-      const i = prev.findIndex((l) => l.itemId === p.id);
+      const i = prev.findIndex((l) => l.lineKey === key);
       const nextQty = i >= 0 ? prev[i].qty + 1 : 1;
-      if (typeof p.stockQty === "number" && nextQty > p.stockQty) {
-        setPayError(
-          locale === "ar"
-            ? `المتبقي ${p.stockQty} فقط`
-            : `Only ${p.stockQty} left`
-        );
-        return prev;
+      if (typeof p.stockQty === "number") {
+        const sameProduct = prev
+          .filter((l) => l.itemId === p.id)
+          .reduce((s, l) => s + l.qty, 0);
+        const extra = i >= 0 ? 0 : 1;
+        if (sameProduct + extra > p.stockQty) {
+          setPayError(
+            locale === "ar"
+              ? `المتبقي ${p.stockQty} فقط`
+              : `Only ${p.stockQty} left`
+          );
+          return prev;
+        }
       }
       if (i >= 0) {
         const next = [...prev];
@@ -534,20 +593,24 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
         ...prev,
         {
           itemId: p.id,
-          name: p.name,
-          nameEn: p.nameEn,
+          lineKey: key,
+          name: extrasAr.length ? `${p.name} · ${extrasAr.join(" · ")}` : p.name,
+          nameEn: extrasEn.length
+            ? `${p.nameEn} · ${extrasEn.join(" · ")}`
+            : p.nameEn,
           qty: 1,
-          unitPrice: p.price,
+          unitPrice: pricing.final,
           image: p.image,
+          options: selections,
         },
       ];
     });
   }
 
-  function setQty(itemId: string, qty: number) {
+  function setQty(lineKey: string, qty: number) {
     setLines((prev) =>
       prev
-        .map((l) => (l.itemId === itemId ? { ...l, qty } : l))
+        .map((l) => (l.lineKey === lineKey ? { ...l, qty } : l))
         .filter((l) => l.qty > 0)
     );
   }
@@ -620,7 +683,11 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
       tableId: tableId || null,
       guestNote: noteSnap,
       branchId: branchId || undefined,
-      lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+      lines: lines.map((l) => ({
+        itemId: l.itemId,
+        qty: l.qty,
+        options: l.options || [],
+      })),
     };
 
     async function queueOffline(reason?: string) {
@@ -1211,7 +1278,7 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
               const img = mediaUrl(l.image);
               return (
                 <div
-                  key={l.itemId}
+                  key={l.lineKey}
                   className="flex items-center gap-2.5 rounded-xl px-2 py-2"
                   style={{ background: OX.card }}
                 >
@@ -1250,11 +1317,11 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
                     className="flex items-center overflow-hidden rounded-lg border"
                     style={{ borderColor: OX.line }}
                   >
-                    <QtyBtn onClick={() => setQty(l.itemId, l.qty - 1)}>−</QtyBtn>
+                    <QtyBtn onClick={() => setQty(l.lineKey, l.qty - 1)}>−</QtyBtn>
                     <span className="min-w-7 text-center text-sm font-bold">
                       {l.qty}
                     </span>
-                    <QtyBtn onClick={() => setQty(l.itemId, l.qty + 1)}>+</QtyBtn>
+                    <QtyBtn onClick={() => setQty(l.lineKey, l.qty + 1)}>+</QtyBtn>
                   </div>
                 </div>
               );
@@ -1420,6 +1487,19 @@ export function PosClient({ staffName }: { staffName?: string | null }) {
           </button>
         </div>
       </footer>
+
+      {picking && (
+        <PosOptionSheet
+          product={picking}
+          locale={locale}
+          currency={brand?.currency || "EGP"}
+          onCancel={() => setPicking(null)}
+          onConfirm={(sel) => {
+            addProduct(picking, sel);
+            setPicking(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1561,5 +1641,114 @@ function HoldIcon() {
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
       <path d="M6 3h9l3 3v15H6V3zm2 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z" />
     </svg>
+  );
+}
+
+function PosOptionSheet({
+  product,
+  locale,
+  currency,
+  onCancel,
+  onConfirm,
+}: {
+  product: CatalogProduct;
+  locale: Locale;
+  currency: string;
+  onCancel: () => void;
+  onConfirm: (sel: OptionSelection[]) => void;
+}) {
+  const groups = product.optionGroups || [];
+  const [sel, setSel] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const g of groups) {
+      if (g.values[0]) init[g.id] = g.values[0].id;
+    }
+    return init;
+  });
+  const selections = Object.entries(sel).map(([groupId, valueId]) => ({
+    groupId,
+    valueId,
+  }));
+  const raw = product.rawPrice ?? product.price;
+  const stub = {
+    id: product.id,
+    categoryId: product.categoryId || "",
+    name: product.name,
+    price: raw,
+    image: product.image,
+    available: true,
+    featured: false,
+    sortOrder: 0,
+    optionGroups: groups,
+  };
+  const pricing = priceAfterDiscount(
+    configuredBasePrice(stub, selections),
+    product.discount || null
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
+      <button type="button" className="absolute inset-0" onClick={onCancel} />
+      <div
+        className="relative z-10 w-full max-w-md rounded-t-3xl p-4 sm:rounded-2xl"
+        style={{ background: OX.panel }}
+      >
+        <h2 className="text-lg font-bold text-white">
+          {pickLocalized(locale, product.name, product.nameEn)}
+        </h2>
+        {groups.map((g) => (
+          <div key={g.id} className="mt-3">
+            <p className="mb-1 text-xs" style={{ color: OX.muted }}>
+              {pickLocalized(locale, g.name, g.nameEn)}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {g.values.map((v) => {
+                const active = sel[g.id] === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSel((s) => ({ ...s, [g.id]: v.id }))}
+                    className="min-h-11 rounded-full px-3 text-sm font-semibold"
+                    style={
+                      active
+                        ? { background: OX.yellow, color: OX.ink }
+                        : {
+                            border: `1px solid ${OX.line}`,
+                            color: "#fff",
+                          }
+                    }
+                  >
+                    {pickLocalized(locale, v.name, v.nameEn)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-lg font-bold" style={{ color: OX.yellow }}>
+            {formatPrice(pricing.final, currency, locale)}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="min-h-11 rounded-xl border px-4 text-sm text-white"
+              style={{ borderColor: OX.line }}
+            >
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirm(selections)}
+              className="min-h-11 rounded-xl px-4 text-sm font-bold"
+              style={{ background: OX.yellow, color: OX.ink }}
+            >
+              {locale === "ar" ? "أضف" : "Add"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

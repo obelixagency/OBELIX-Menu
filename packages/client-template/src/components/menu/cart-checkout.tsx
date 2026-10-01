@@ -118,7 +118,11 @@ export function CartCheckout({
               ? { phone, addressLine: address, notes: deliveryNotes }
               : undefined,
           guestNote: guestNoteEnabled ? guestNote : undefined,
-          lines: cart.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
+          lines: cart.lines.map((l) => ({
+            itemId: l.itemId,
+            qty: l.qty,
+            options: l.options || [],
+          })),
           website: honeypot,
           branchId: branchId || undefined,
         }),
@@ -171,7 +175,7 @@ export function CartCheckout({
             <ul className="space-y-3">
               {cart.lines.map((l) => (
                 <li
-                  key={l.itemId}
+                  key={l.lineKey}
                   className="flex items-center justify-between gap-2 text-sm"
                 >
                   <div className="min-w-0">
@@ -186,7 +190,7 @@ export function CartCheckout({
                     <button
                       type="button"
                       className="h-9 w-9 rounded-md border"
-                      onClick={() => cart.setQty(l.itemId, l.qty - 1)}
+                      onClick={() => cart.setQty(l.lineKey, l.qty - 1)}
                     >
                       −
                     </button>
@@ -196,7 +200,7 @@ export function CartCheckout({
                     <button
                       type="button"
                       className="h-9 w-9 rounded-md border"
-                      onClick={() => cart.setQty(l.itemId, l.qty + 1)}
+                      onClick={() => cart.setQty(l.lineKey, l.qty + 1)}
                     >
                       +
                     </button>

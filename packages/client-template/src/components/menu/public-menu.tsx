@@ -6,6 +6,9 @@ import { formatPrice } from "@/lib/utils";
 import {
   priceAfterDiscount,
   resolveDiscount,
+  configuredBasePrice,
+  lineKey,
+  optionLabels,
   reviewOverall,
   type Banner,
   type BrandConfig,
@@ -22,6 +25,7 @@ import { PromoBannerCarousel } from "@/components/menu/promo-banners";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
 import { CartProvider, useCart } from "@/components/menu/cart-context";
 import { CartCheckout } from "@/components/menu/cart-checkout";
+import { OptionPicker } from "@/components/menu/option-picker";
 
 type Props = {
   brand: BrandConfig;
@@ -69,6 +73,7 @@ function PublicMenuInner({
   const [query, setQuery] = useState("");
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [rateOpen, setRateOpen] = useState(false);
+  const [picking, setPicking] = useState<Product | null>(null);
   const cart = useCart();
 
   function stockFor(id: string): number | null {
@@ -98,22 +103,39 @@ function PublicMenuInner({
     [categories]
   );
 
-  function addProduct(p: Product) {
+  function commitAdd(p: Product, selections: { groupId: string; valueId: string }[] = []) {
     if (isOut(p.id)) return;
     const discount = resolveDiscount(p, catMap.get(p.categoryId));
-    const pricing = priceAfterDiscount(p.price, discount);
+    const base = configuredBasePrice(p, selections);
+    const pricing = priceAfterDiscount(base, discount);
     const have = stockFor(p.id);
     if (have !== null) {
-      const inCart = cart.lines.find((l) => l.itemId === p.id)?.qty || 0;
+      const inCart = cart.lines
+        .filter((l) => l.itemId === p.id)
+        .reduce((s, l) => s + l.qty, 0);
       if (inCart + 1 > have) return;
     }
+    const extrasAr = optionLabels(p, selections, "ar");
+    const extrasEn = optionLabels(p, selections, "en");
     cart.addItem({
       itemId: p.id,
-      name: p.name,
-      nameEn: p.nameEn,
+      lineKey: lineKey(p.id, selections),
+      name: extrasAr.length ? `${p.name} · ${extrasAr.join(" · ")}` : p.name,
+      nameEn: extrasEn.length
+        ? `${p.nameEn || p.name} · ${extrasEn.join(" · ")}`
+        : p.nameEn,
       unitPrice: pricing.final,
       image: p.image,
+      options: selections,
     });
+  }
+
+  function addProduct(p: Product) {
+    if ((p.optionGroups || []).length) {
+      setPicking(p);
+      return;
+    }
+    commitAdd(p);
   }
 
   const productsHere = useMemo(() => {
@@ -174,24 +196,54 @@ function PublicMenuInner({
 
       <PromoBannerCarousel banners={banners} />
 
-      <header
-        className="relative overflow-hidden border-b border-black/10"
-        style={{
-          background: `linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.primary}dd 55%, ${brand.colors.accent}55 100%)`,
-        }}
-      >
-        <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-3 px-4 py-8 text-center text-white sm:py-10">
-          <div className="absolute end-3 top-3 z-10 flex items-center gap-1.5">
+      <header className="sticky top-0 z-20 border-b border-[var(--brand-line)] bg-[color-mix(in_srgb,var(--brand-surface)_88%,white)]/95 backdrop-blur">
+        <div className="relative mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+          {brand.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logoUrl}
+              alt={brand.displayName}
+              className="h-11 w-11 rounded-full bg-white object-contain p-0.5 shadow-sm ring-1 ring-[var(--brand-line)]"
+            />
+          ) : (
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-lg font-extrabold shadow-sm"
+              style={{ color: brand.colors.primary }}
+            >
+              {brand.displayName.slice(0, 1)}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-extrabold tracking-tight sm:text-lg">
+              {brand.displayName}
+            </h1>
+            {branchLabel ? (
+              <p className="truncate text-xs text-[var(--brand-muted)]">
+                {branchLabel}
+              </p>
+            ) : (
+              <p className="truncate text-xs text-[var(--brand-muted)]">
+                {pickLocalized(locale, brand.slogan, brand.sloganEn) ||
+                  (orderingOn
+                    ? locale === "en"
+                      ? "Order from your phone"
+                      : "اطلب من الموبايل"
+                    : locale === "en"
+                      ? "Digital menu"
+                      : "منيو رقمي")}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => setRateOpen(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-[var(--brand-accent)] shadow-sm backdrop-blur-sm touch-manipulation transition hover:bg-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--brand-line)] bg-white text-[var(--brand-accent)] touch-manipulation"
               aria-label={locale === "en" ? "Open Rate Form" : "فتح نموذج التقييم"}
-              title={locale === "en" ? "Rate Form" : "نموذج التقييم"}
             >
               <svg
                 viewBox="0 0 24 24"
-                className="h-6 w-6 drop-shadow-sm"
+                className="h-5 w-5"
                 fill="currentColor"
                 aria-hidden="true"
               >
@@ -199,17 +251,17 @@ function PublicMenuInner({
               </svg>
             </button>
             {mode === "both" && (
-              <div className="flex gap-1 rounded-full bg-black/25 p-1 text-xs backdrop-blur-sm">
+              <div className="flex gap-1 rounded-full border border-[var(--brand-line)] bg-white p-1 text-xs">
                 <button
                   type="button"
-                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "ar" ? "bg-white text-black" : "text-white"}`}
+                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "ar" ? "bg-[var(--brand-primary)] text-white" : "text-[var(--brand-muted)]"}`}
                   onClick={() => setLocale("ar")}
                 >
                   عربي
                 </button>
                 <button
                   type="button"
-                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "en" ? "bg-white text-black" : "text-white"}`}
+                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "en" ? "bg-[var(--brand-primary)] text-white" : "text-[var(--brand-muted)]"}`}
                   onClick={() => setLocale("en")}
                 >
                   EN
@@ -217,36 +269,6 @@ function PublicMenuInner({
               </div>
             )}
           </div>
-          {brand.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brand.logoUrl}
-              alt={brand.displayName}
-              className="h-14 w-14 rounded-full bg-white/95 object-contain p-1 shadow-md sm:h-16 sm:w-16"
-            />
-          ) : (
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-2xl font-extrabold shadow-md"
-              style={{ color: brand.colors.primary }}
-            >
-              {brand.displayName.slice(0, 1)}
-            </div>
-          )}
-          <h1 className="max-w-full break-words text-2xl font-extrabold tracking-tight sm:text-4xl">
-            {brand.displayName}
-          </h1>
-          {branchLabel && (
-            <p className="text-sm font-medium text-white/90">{branchLabel}</p>
-          )}
-          <p className="max-w-md text-sm text-white/85">
-            {orderingOn
-              ? locale === "en"
-                ? "Browse the menu and order from your phone."
-                : "تصفّح المنيو واطلب من موبايلك."
-              : locale === "en"
-                ? "Digital menu — browse items & prices."
-                : "منيو رقمي — تصفّح الأصناف والأسعار."}
-          </p>
         </div>
       </header>
 
@@ -257,7 +279,7 @@ function PublicMenuInner({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={locale === "en" ? "Search…" : "ابحث عن صنف…"}
-            className="mb-3 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base outline-none focus:ring-2 focus:ring-[var(--brand-primary)] sm:text-sm"
+            className="mb-3 h-11 w-full rounded-full border border-[var(--brand-line)] bg-white px-4 text-base outline-none focus:ring-2 focus:ring-[var(--brand-primary)] sm:text-sm"
           />
 
           {!query && (
@@ -451,15 +473,17 @@ function PublicMenuInner({
             <button
               type="button"
               onClick={() => cart.setOpen(true)}
-              className="fixed bottom-4 start-4 end-4 z-40 mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl px-5 font-bold text-white shadow-lg touch-manipulation"
+              className="fixed bottom-4 start-4 end-4 z-40 mx-auto flex h-14 max-w-md items-center justify-between rounded-full px-5 font-bold text-white shadow-lg touch-manipulation"
               style={{ background: "var(--brand-primary)" }}
             >
               <span>
                 {locale === "en"
-                  ? `Cart · ${cart.count}`
-                  : `السلة · ${cart.count}`}
+                  ? `${cart.count} items · ${formatPrice(cart.subtotal, currency, locale)}`
+                  : `${cart.count} أصناف · ${formatPrice(cart.subtotal, currency, locale)}`}
               </span>
-              <span>{formatPrice(cart.subtotal, currency, locale)}</span>
+              <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
+                {locale === "en" ? "Checkout" : "إتمام الطلب"}
+              </span>
             </button>
           )}
           <CartCheckout
@@ -474,6 +498,20 @@ function PublicMenuInner({
             branchId={branchId}
           />
         </>
+      )}
+
+      {picking && (
+        <OptionPicker
+          product={picking}
+          category={catMap.get(picking.categoryId)}
+          locale={locale}
+          currency={currency}
+          onCancel={() => setPicking(null)}
+          onConfirm={(selections) => {
+            commitAdd(picking, selections);
+            setPicking(null);
+          }}
+        />
       )}
 
       <RateFormModal
@@ -513,7 +551,7 @@ function ProductCard({
 
   return (
     <div
-      className={`flex min-w-0 gap-3 overflow-hidden rounded-xl border border-black/8 bg-white/95 p-3 shadow-sm transition ${
+      className={`flex min-w-0 gap-3 overflow-hidden rounded-2xl border border-[var(--brand-line)] bg-white p-3 shadow-[0_1px_2px_rgba(26,20,16,.06),0_8px_24px_rgba(26,20,16,.04)] transition ${
         outOfStock ? "opacity-60" : ""
       }`}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
@@ -558,6 +596,11 @@ function ProductCard({
           </div>
           {desc && (
             <p className="mt-0.5 line-clamp-2 text-xs text-black/50">{desc}</p>
+          )}
+          {(product.optionGroups || []).length > 0 && (
+            <p className="mt-1 text-[10px] font-semibold text-black/40">
+              {locale === "en" ? "Options" : "خيارات"}
+            </p>
           )}
           <div className="mt-2 flex flex-wrap items-baseline gap-2">
             <p className="text-sm font-bold text-[var(--brand-primary)]">

@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
-import { createBanner, listBanners } from "@/lib/menu-data";
+import { createBanner, isPromoEnabled, listBanners, setPromoEnabled } from "@/lib/menu-data";
 
 export async function GET() {
-  const banners = await listBanners();
+  const [banners, promoEnabled] = await Promise.all([
+    listBanners(),
+    isPromoEnabled(),
+  ]);
   return NextResponse.json({
-    banners: banners.filter((b) => b.active),
+    banners: promoEnabled ? banners.filter((b) => b.active) : [],
     all: banners,
+    promoEnabled,
   });
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+  }
+  const body = await req.json();
+  if (typeof body.promoEnabled === "boolean") {
+    await setPromoEnabled(body.promoEnabled);
+  }
+  const [banners, promoEnabled] = await Promise.all([
+    listBanners(),
+    isPromoEnabled(),
+  ]);
+  return NextResponse.json({ all: banners, promoEnabled });
 }
 
 export async function POST(req: NextRequest) {

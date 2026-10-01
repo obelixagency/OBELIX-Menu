@@ -47,7 +47,7 @@ export default function ReviewsClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">نماذج التقييم (Rate Form)</h1>
+        <h1 className="text-2xl font-bold leading-8">التقييمات</h1>
         <p className="text-sm text-black/50">
           كل إرسال يظهر هنا. اضبط إيميل الإشعار من الإعدادات. بدون SMTP/Resend
           تُحفظ التقييمات فقط.

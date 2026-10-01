@@ -119,7 +119,7 @@ export function OrdersDashboardClient({ currency }: { currency: string }) {
         {orders.map((o) => (
           <li
             key={o.id}
-            className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-[var(--brand-line)] bg-white p-4 shadow-[0_1px_2px_rgba(26,20,16,.06)]"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
@@ -191,7 +191,7 @@ function Btn({
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-10 rounded-md px-3 text-sm font-semibold ${
+              className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
         variant === "danger"
           ? "border border-red-300 text-red-700"
           : "bg-[var(--brand-primary)] text-white"

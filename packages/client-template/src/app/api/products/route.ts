@@ -26,12 +26,13 @@ export async function POST(req: NextRequest) {
       description: body.description,
       descriptionEn: body.descriptionEn,
       price: Number(body.price),
-      discountType: body.discountType ?? null,
-      discountValue: body.discountValue ?? 0,
-      image: body.image ?? null,
-      available: body.available ?? true,
-      featured: body.featured ?? false,
-      sortOrder: body.sortOrder ?? 0,
+        discountType: body.discountType ?? null,
+        discountValue: body.discountValue ?? 0,
+        image: body.image ?? null,
+        available: body.available ?? true,
+        featured: body.featured ?? false,
+        sortOrder: body.sortOrder ?? 0,
+        optionGroups: body.optionGroups || [],
     });
     return NextResponse.json({ product }, { status: 201 });
   } catch (err) {

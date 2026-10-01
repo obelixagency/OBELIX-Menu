@@ -32,6 +32,7 @@ export function HomeClient() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     fetch("/api/clients")
@@ -51,20 +52,61 @@ export function HomeClient() {
   }, [router, t.home.loadError]);
 
   const dateLocale = locale === "ar" ? "ar-EG" : "en-GB";
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? clients.filter(
+        (c) =>
+          c.displayName.toLowerCase().includes(q) ||
+          c.slug.toLowerCase().includes(q) ||
+          c.domain.toLowerCase().includes(q)
+      )
+    : clients;
+  const live = clients.filter((c) => c.status === "live" || c.packagePath).length;
+  const draft = clients.length - live;
+  const lastExport = clients
+    .map((c) => c.lastExportedAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
 
   return (
     <main className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-white">{t.home.title}</h2>
+          <h2 className="text-2xl font-bold text-white">{t.home.title}</h2>
           <p className="text-sm text-white/50">{t.home.subtitle}</p>
         </div>
-        <Link href="/clients/new" className="w-full sm:w-auto">
-          <Button type="button" className="w-full sm:w-auto">
-            {t.home.create}
-          </Button>
-        </Link>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search clients…"
+            className="h-11 w-full rounded-full border border-white/15 bg-[#141414] px-4 text-sm text-white outline-none placeholder:text-white/35 focus:ring-2 focus:ring-[var(--obx-yellow)] sm:w-64"
+          />
+          <Link href="/clients/new" className="w-full sm:w-auto">
+            <Button type="button" className="w-full sm:w-auto">
+              {t.home.create}
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {!loading && !error && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Kpi label="Clients" value={clients.length} />
+          <Kpi label="Live" value={live} />
+          <Kpi label="Draft" value={draft} />
+          <Kpi
+            label="Last export"
+            value={
+              lastExport
+                ? new Date(lastExport).toLocaleDateString(dateLocale)
+                : "—"
+            }
+            yellow
+          />
+        </div>
+      )}
 
       {loading && <p className="text-sm text-white/50">{t.home.loading}</p>}
       {error && (
@@ -88,7 +130,7 @@ export function HomeClient() {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {clients.map((c) => (
+        {filtered.map((c) => (
           <Link key={c.id} href={`/clients/${c.id}`} className="block min-w-0">
             <Card className="h-full transition hover:border-[var(--obx-yellow)]/40">
               <CardHeader>
@@ -120,6 +162,9 @@ export function HomeClient() {
                     <CardDescription className="truncate">
                       {c.slug} · {c.domain}
                     </CardDescription>
+                    <span className="mt-2 inline-flex rounded-full bg-[var(--obx-yellow)] px-2 py-0.5 text-[10px] font-bold uppercase text-black">
+                      {c.packagePath ? "Live" : "Draft"}
+                    </span>
                   </div>
                 </div>
               </CardHeader>
@@ -145,5 +190,26 @@ export function HomeClient() {
         ))}
       </div>
     </main>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  yellow,
+}: {
+  label: string;
+  value: number | string;
+  yellow?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[var(--obx-bg-card)] p-4">
+      <p className="text-xs text-white/45">{label}</p>
+      <p
+        className={`mt-1 text-2xl font-bold tabular-nums ${yellow ? "text-[var(--obx-yellow)]" : "text-white"}`}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

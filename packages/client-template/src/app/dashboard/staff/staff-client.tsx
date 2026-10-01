@@ -109,12 +109,9 @@ export function StaffClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-[var(--brand-primary)]">
-          Staff accounts
-        </h1>
-        <p className="text-sm text-black/50">
-          Owner / cashier / kitchen / barista — each signs in with their own
-          username.
+        <h1 className="text-2xl font-bold leading-8">الموظفون</h1>
+        <p className="mt-1 text-sm text-[var(--brand-muted)]">
+          المالك والكاشير والمطبخ والبار — كل شخص يدخل بيوزرنيم خاص.
         </p>
       </div>
 

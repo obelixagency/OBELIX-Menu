@@ -296,13 +296,14 @@ export function PurchasingClient() {
           [
             ["suppliers", "الموردون"],
             ["pos", "أوامر الشراء"],
-            ["books", "محاسبة"],
+            ["books", "استلام ومحاسبة"],
           ] as const
         ).map(([key, label]) => (
           <Button
             key={key}
             type="button"
             variant={tab === key ? "default" : "outline"}
+            className="rounded-full"
             onClick={() => setTab(key)}
           >
             {label}

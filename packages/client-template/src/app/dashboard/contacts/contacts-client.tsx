@@ -84,7 +84,7 @@ export default function ContactsClient() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">وسائل التواصل</h1>
+      <h1 className="text-2xl font-bold leading-8">التواصل</h1>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">إضافة</CardTitle>

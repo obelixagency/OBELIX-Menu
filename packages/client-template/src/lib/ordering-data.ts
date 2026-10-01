@@ -11,6 +11,10 @@ import { getCategory, getProduct, listCategories } from "./menu-data";
 import {
   priceAfterDiscount as priceDisc,
   resolveDiscount as resolveDisc,
+  configuredBasePrice,
+  missingRequiredOptions,
+  optionLabels,
+  type OptionSelection,
 } from "./types";
 import { deductStock, restoreStock } from "./inventory-data";
 import {
@@ -437,13 +441,42 @@ export async function getOrderByCode(code: string): Promise<Order | null> {
   return store.orders.find((o) => o.code.toUpperCase() === c) ?? null;
 }
 
+function pricedLineFromProduct(
+  product: NonNullable<Awaited<ReturnType<typeof getProduct>>>,
+  category: Awaited<ReturnType<typeof getCategory>>,
+  qty: number,
+  selections: OptionSelection[],
+  station: Station
+) {
+  const missing = missingRequiredOptions(product, selections);
+  if (missing.length) {
+    throw new Error(`اختر ${missing[0].name}`);
+  }
+  const base = configuredBasePrice(product, selections);
+  const discount = resolveDisc(product, category);
+  const pricing = priceDisc(base, discount);
+  const extraAr = optionLabels(product, selections, "ar");
+  const extraEn = optionLabels(product, selections, "en");
+  const suffixAr = extraAr.length ? ` · ${extraAr.join(" · ")}` : "";
+  const suffixEn = extraEn.length ? ` · ${extraEn.join(" · ")}` : "";
+  return {
+    itemId: product.id,
+    name: `${product.nameEn || product.name}${suffixEn}`,
+    nameAr: `${product.name}${suffixAr}`,
+    qty,
+    unitPrice: pricing.final,
+    lineTotal: Math.round(pricing.final * qty * 100) / 100,
+    station,
+  } satisfies OrderLine;
+}
+
 export type CreateOrderInput = {
   channel: OrderChannel;
   tableId?: string;
   zoneId?: string;
   delivery?: { phone: string; addressLine: string; notes?: string };
   guestNote?: string;
-  lines: { itemId: string; qty: number }[];
+  lines: { itemId: string; qty: number; options?: OptionSelection[] }[];
   branchId?: string | null;
   /** honeypot — must be empty */
   website?: string;
@@ -531,23 +564,16 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     if (!product.available) {
       throw new Error("صنف غير متاح — حدّث السلة");
     }
+    const selections = Array.isArray(raw.options) ? raw.options : [];
     const category = product.categoryId
       ? await getCategory(product.categoryId)
       : null;
-    const discount = resolveDisc(product, category);
-    const pricing = priceDisc(product.price, discount);
     const station = product.categoryId
       ? await resolveStationForCategory(product.categoryId)
       : "unassigned";
-    lines.push({
-      itemId: product.id,
-      name: product.nameEn || product.name,
-      nameAr: product.name,
-      qty,
-      unitPrice: pricing.final,
-      lineTotal: Math.round(pricing.final * qty * 100) / 100,
-      station,
-    });
+    lines.push(
+      pricedLineFromProduct(product, category, qty, selections, station)
+    );
   }
   if (!lines.length) throw new Error("السلة فارغة");
 
@@ -607,7 +633,7 @@ export type CreatePosOrderInput = {
   tableId?: string | null;
   guestNote?: string;
   paymentMethod: "cash" | "card" | "other";
-  lines: { itemId: string; qty: number }[];
+  lines: { itemId: string; qty: number; options?: OptionSelection[] }[];
   branchId?: string | null;
 };
 
@@ -674,23 +700,16 @@ export async function createPosOrder(
     if (!product.available) {
       throw new Error("Item unavailable — refresh catalog");
     }
+    const selections = Array.isArray(raw.options) ? raw.options : [];
     const category = product.categoryId
       ? await getCategory(product.categoryId)
       : null;
-    const discount = resolveDisc(product, category);
-    const pricing = priceDisc(product.price, discount);
     const station = product.categoryId
       ? await resolveStationForCategory(product.categoryId)
       : "unassigned";
-    lines.push({
-      itemId: product.id,
-      name: product.nameEn || product.name,
-      nameAr: product.name,
-      qty,
-      unitPrice: pricing.final,
-      lineTotal: Math.round(pricing.final * qty * 100) / 100,
-      station,
-    });
+    lines.push(
+      pricedLineFromProduct(product, category, qty, selections, station)
+    );
   }
   if (!lines.length) throw new Error("Ticket is empty");
 

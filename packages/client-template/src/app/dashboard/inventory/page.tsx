@@ -3,6 +3,7 @@ import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { hasInventory } from "@/lib/extensions/ordering";
 import { InventoryClient } from "./inventory-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,10 @@ export default async function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">المخازن</h1>
-        <p className="text-sm text-black/50">
-          كميات الأصناف وحدود التنبيه — تتحدث مع كل بيع من المنيو أو الـ POS.
-        </p>
-      </div>
+      <PageHeader
+        title="المخزون"
+        description="كميات الأصناف وحدود التنبيه — تتحدث مع كل بيع من المنيو أو الـ POS."
+      />
       <InventoryClient />
     </div>
   );

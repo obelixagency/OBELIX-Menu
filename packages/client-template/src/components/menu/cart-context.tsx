@@ -12,11 +12,13 @@ import {
 
 export type CartLine = {
   itemId: string;
+  lineKey: string;
   name: string;
   nameEn?: string;
   unitPrice: number;
   qty: number;
   image?: string | null;
+  options?: { groupId: string; valueId: string }[];
 };
 
 type CartContextValue = {
@@ -24,8 +26,8 @@ type CartContextValue = {
   count: number;
   subtotal: number;
   addItem: (item: Omit<CartLine, "qty">, qty?: number) => void;
-  setQty: (itemId: string, qty: number) => void;
-  removeItem: (itemId: string) => void;
+  setQty: (lineKey: string, qty: number) => void;
+  removeItem: (lineKey: string) => void;
   clear: () => void;
   open: boolean;
   setOpen: (v: boolean) => void;
@@ -48,7 +50,10 @@ function readStoredLines(): CartLine[] {
         typeof l.name === "string" &&
         Number(l.unitPrice) >= 0 &&
         Number(l.qty) > 0
-    );
+    ).map((l) => ({
+      ...l,
+      lineKey: l.lineKey || l.itemId,
+    }));
   } catch {
     return [];
   }
@@ -82,35 +87,35 @@ export function CartProvider({
   const addItem = useCallback(
     (item: Omit<CartLine, "qty">, qty = 1) => {
       setLines((prev) => {
+        const key = item.lineKey || item.itemId;
+        const existing = prev.find((l) => l.lineKey === key);
         const totalQty =
-          prev.reduce((s, l) => s + l.qty, 0) +
-          (prev.some((l) => l.itemId === item.itemId) ? 0 : qty);
-        const existing = prev.find((l) => l.itemId === item.itemId);
+          prev.reduce((s, l) => s + l.qty, 0) + (existing ? 0 : qty);
         if (existing) {
           const nextQty = existing.qty + qty;
           const without = prev.reduce((s, l) => s + l.qty, 0) - existing.qty;
           if (without + nextQty > maxItems) return prev;
           return prev.map((l) =>
-            l.itemId === item.itemId ? { ...l, qty: nextQty } : l
+            l.lineKey === key ? { ...l, qty: nextQty } : l
           );
         }
         if (totalQty > maxItems) return prev;
-        return [...prev, { ...item, qty }];
+        return [...prev, { ...item, lineKey: key, qty }];
       });
       setOpen(true);
     },
     [maxItems]
   );
 
-  const setQty = useCallback((itemId: string, qty: number) => {
+  const setQty = useCallback((lineKey: string, qty: number) => {
     setLines((prev) => {
-      if (qty <= 0) return prev.filter((l) => l.itemId !== itemId);
-      return prev.map((l) => (l.itemId === itemId ? { ...l, qty } : l));
+      if (qty <= 0) return prev.filter((l) => l.lineKey !== lineKey);
+      return prev.map((l) => (l.lineKey === lineKey ? { ...l, qty } : l));
     });
   }, []);
 
-  const removeItem = useCallback((itemId: string) => {
-    setLines((prev) => prev.filter((l) => l.itemId !== itemId));
+  const removeItem = useCallback((lineKey: string) => {
+    setLines((prev) => prev.filter((l) => l.lineKey !== lineKey));
   }, []);
 
   const clear = useCallback(() => setLines([]), []);

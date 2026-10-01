@@ -3,6 +3,7 @@ import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { hasPos } from "@/lib/extensions/ordering";
 import { ShiftsClient } from "./shifts-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,10 @@ export default async function ShiftsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">الورديات</h1>
-        <p className="text-sm text-black/50">
-          فتح وتقفيل وردية الكاشير — ملخص كاش/بطاقة من مبيعات الـ POS.
-        </p>
-      </div>
+      <PageHeader
+        title="الورديات"
+        description="فتح وتقفيل وردية الكاشير — ملخص كاش/بطاقة من مبيعات الـ POS."
+      />
       <ShiftsClient currency={brand.currency || "EGP"} />
     </div>
   );

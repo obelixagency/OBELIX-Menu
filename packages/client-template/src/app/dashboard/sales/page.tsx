@@ -3,6 +3,7 @@ import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { SalesClient } from "./sales-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +18,10 @@ export default async function SalesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">تقرير المبيعات</h1>
-        <p className="text-sm text-black/50">
-          ملخص يومي من طلبات المنيو والـ POS — إيراد، قنوات، دفع، وأصناف.
-        </p>
-      </div>
+      <PageHeader
+        title="المبيعات"
+        description="ملخص يومي من طلبات المنيو والـ POS — إيراد، قنوات، ودفع."
+      />
       <SalesClient currency={brand.currency || "EGP"} />
     </div>
   );

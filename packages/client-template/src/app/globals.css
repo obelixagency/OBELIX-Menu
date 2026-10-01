@@ -5,6 +5,9 @@
   --brand-accent: #d4a017;
   --brand-surface: #f7f1e8;
   --brand-ink: #1a1410;
+  --brand-muted: #6b5e52;
+  --brand-line: rgba(26, 20, 16, 0.08);
+  --brand-card: #ffffff;
   --background: var(--brand-surface);
   --foreground: var(--brand-ink);
 }

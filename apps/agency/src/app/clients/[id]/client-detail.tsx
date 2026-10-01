@@ -199,8 +199,11 @@ export default function ClientDetailView() {
               )}
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-xl sm:text-2xl">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-xl sm:text-2xl">
                 {client.displayName}
+                <span className="rounded-full bg-[var(--obx-yellow)] px-2 py-0.5 text-[10px] font-bold uppercase text-black">
+                  {client.packagePath ? "Live" : client.status}
+                </span>
               </CardTitle>
               <CardDescription className="break-all">
                 {client.slug} · {client.domain}

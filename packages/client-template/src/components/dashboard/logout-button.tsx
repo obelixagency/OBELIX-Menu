@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { withBasePath } from "@/lib/base-path";
+import { Button } from "@/components/ui/button";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export function LogoutButton() {
       variant="outline"
       size="sm"
       onClick={async () => {
-        await fetch("/api/auth/logout", { method: "POST" });
+        await fetch(withBasePath("/api/auth/logout"), { method: "POST" });
         router.push("/dashboard/login");
         router.refresh();
       }}

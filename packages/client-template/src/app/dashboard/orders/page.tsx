@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { OrdersDashboardClient } from "./orders-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,10 @@ export default async function OrdersPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">الطلبات</h1>
-        <p className="text-sm text-black/50">
-          متابعة حالة الطلبات — تحديث تلقائي. الدفع عند الكاشير أو عند التوصيل.
-        </p>
-      </div>
+      <PageHeader
+        title="الطلبات"
+        description="متابعة الحالة — تحديث تلقائي. الدفع عند الكاشير أو عند التوصيل."
+      />
       <OrdersDashboardClient currency={brand.currency || "EGP"} />
     </div>
   );

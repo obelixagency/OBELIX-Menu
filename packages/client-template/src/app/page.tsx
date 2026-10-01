@@ -1,5 +1,6 @@
 import { readBrand } from "@/lib/brand";
 import {
+  isPromoEnabled,
   listBanners,
   listCategories,
   listContacts,
@@ -23,7 +24,7 @@ export default async function HomePage({ searchParams }: Props) {
   const branchId = await resolveBranchId(sp.branch || null);
   const branch = multi ? await getBranch(branchId) : null;
 
-  const [brand, categories, productsRaw, contacts, reviews, banners, invOn] =
+  const [brand, categories, productsRaw, contacts, reviews, banners, invOn, promoOn] =
     await Promise.all([
       readBrand(),
       listCategories(),
@@ -32,6 +33,7 @@ export default async function HomePage({ searchParams }: Props) {
       listReviews(),
       listBanners(),
       isInventoryOn(),
+      isPromoEnabled(),
     ]);
 
   const products = await Promise.all(
@@ -46,7 +48,7 @@ export default async function HomePage({ searchParams }: Props) {
       products={products}
       contacts={contacts}
       reviews={reviews}
-      banners={banners}
+      banners={promoOn ? banners : []}
       stockMap={stockMap}
       inventoryEnabled={invOn}
       branchId={branchId}

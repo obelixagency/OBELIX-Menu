@@ -137,7 +137,11 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
                 <span className="rounded bg-[var(--brand-accent)] px-2 py-0.5 text-xs font-bold text-black">
                   {discount?.type === "percent"
                     ? `-${discount.value}%`
-                    : `-${formatPrice(discount?.value || 0, currency, locale)}`}
+                    : discount?.type === "price"
+                      ? locale === "en"
+                        ? "Offer"
+                        : "عرض"
+                      : `-${formatPrice(discount?.value || 0, currency, locale)}`}
                 </span>
               </>
             )}
@@ -172,13 +176,8 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
                 guestNoteEnabled={features.guestNoteEnabled}
                 stockQty={stockQty}
                 branchId={branchId}
-                item={{
-                  itemId: product.id,
-                  name: product.name,
-                  nameEn: product.nameEn,
-                  unitPrice: pricing.final,
-                  image: product.image,
-                }}
+                product={product}
+                category={category}
               />
             )
           ) : (

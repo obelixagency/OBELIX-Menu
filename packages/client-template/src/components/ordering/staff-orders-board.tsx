@@ -278,14 +278,14 @@ export function StaffOrdersBoard({
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white" dir="rtl">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur">
+    <div className="min-h-screen bg-[#F6F3EE] text-[var(--brand-ink)]" dir="rtl">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--brand-line)] bg-white/95 px-4 py-3 backdrop-blur">
         <div>
-          <h1 className="text-xl font-bold text-[#FACF1C]">{title}</h1>
-          <p className="text-xs text-white/45">
+          <h1 className="text-xl font-bold text-[var(--brand-primary)]">{title}</h1>
+          <p className="text-xs text-[var(--brand-muted)]">
             آخر تحديث: {lastRefresh || "—"} · تحديث تلقائي كل ٤ ثوانٍ
             {deliveryNew > 0 && (
-              <span className="ms-2 rounded bg-[#FACF1C] px-1.5 py-0.5 font-bold text-black">
+              <span className="ms-2 rounded-full bg-[var(--brand-accent)] px-1.5 py-0.5 font-bold text-[var(--brand-ink)]">
                 توصيل جديد ×{deliveryNew}
               </span>
             )}
@@ -295,17 +295,17 @@ export function StaffOrdersBoard({
           <button
             type="button"
             onClick={() => setSoundOn(true)}
-            className={`min-h-11 rounded-md px-3 text-sm font-semibold ${
+            className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
               soundOn
-                ? "bg-[#FACF1C] text-black"
-                : "border border-[#FACF1C] text-[#FACF1C]"
+                ? "bg-[var(--brand-primary)] text-white"
+                : "border border-[var(--brand-primary)] text-[var(--brand-primary)]"
             }`}
           >
             {soundOn ? "الصوت مفعّل" : "تفعيل الصوت"}
           </button>
           <Link
             href="/dashboard/orders"
-            className="flex min-h-11 items-center rounded-md border border-white/20 px-3 text-sm"
+            className="flex min-h-11 items-center rounded-xl border border-[var(--brand-line)] bg-white px-3 text-sm"
           >
             الداشبورد
           </Link>
@@ -327,8 +327,8 @@ export function StaffOrdersBoard({
             onClick={() => setChannelFilter(key)}
             className={`min-h-9 rounded-full px-3 text-xs font-semibold ${
               channelFilter === key
-                ? "bg-[#FACF1C] text-black"
-                : "border border-white/20 text-white/70"
+                ? "bg-[var(--brand-primary)] text-white"
+                : "border border-[var(--brand-line)] bg-white text-[var(--brand-ink)]"
             }`}
           >
             {label}
@@ -337,7 +337,7 @@ export function StaffOrdersBoard({
       </div>
 
       {error && (
-        <p className="m-4 rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-200">
+        <p className="m-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -353,50 +353,50 @@ export function StaffOrdersBoard({
           return (
             <li
               key={o.id}
-              className={`rounded-xl border p-4 ${
+              className={`rounded-2xl border p-4 ${
                 o.channel === "delivery" && o.status === "new"
-                  ? "border-orange-400 bg-orange-400/15 ring-1 ring-orange-400/40"
+                  ? "border-orange-300 bg-orange-50"
                   : o.status === "new"
-                    ? "border-[#FACF1C] bg-[#FACF1C]/10"
-                    : "border-white/10 bg-white/5"
+                    ? "border-[var(--brand-accent)] bg-white"
+                    : "border-[var(--brand-line)] bg-white"
               }`}
             >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-mono text-lg font-bold text-[#FACF1C]">
+                  <p className="font-mono text-lg font-bold text-[var(--brand-primary)]">
                     #{o.code}
                   </p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-[var(--brand-muted)]">
                     {new Date(o.createdAt).toLocaleTimeString("ar-EG")}
                   </p>
                 </div>
-                <span className="rounded bg-white/10 px-2 py-1 text-xs">
+                <span className="rounded-full bg-black/5 px-2 py-1 text-xs">
                   {STATUS_AR[o.status]}
                 </span>
               </div>
               <p className="mb-2 text-sm">
                 {o.channel === "delivery" ? (
                   <>
-                    <span className="text-[#FACF1C]">توصيل</span> ·{" "}
+                    <span className="text-[var(--brand-primary)]">توصيل</span> ·{" "}
                     {o.delivery?.phone} · {o.delivery?.addressLine}
                   </>
                 ) : o.channel === "pos" ? (
                   <>
-                    <span className="text-[#FACF1C]">POS</span>
+                    <span className="text-[var(--brand-primary)]">POS</span>
                     {o.tableLabel
                       ? ` · ${o.zoneLabel ? `${o.zoneLabel} / ` : ""}${o.tableLabel}`
                       : " · walk-in"}
                   </>
                 ) : (
                   <>
-                    <span className="text-[#FACF1C]">طاولة</span> ·{" "}
+                    <span className="text-[var(--brand-primary)]">طاولة</span> ·{" "}
                     {o.zoneLabel ? `${o.zoneLabel} / ` : ""}
                     {o.tableLabel}
                   </>
                 )}
               </p>
               {o.guestNote && (
-                <p className="mb-2 text-xs text-white/60">ملاحظة: {o.guestNote}</p>
+                <p className="mb-2 text-xs text-[var(--brand-muted)]">ملاحظة: {o.guestNote}</p>
               )}
               <ul className="mb-3 space-y-1 text-sm">
                 {lines.map((l, i) => (
@@ -404,12 +404,12 @@ export function StaffOrdersBoard({
                     <span>
                       {l.qty}× {l.nameAr || l.name}
                       {!showAllLines ? null : (
-                        <span className="ms-1 text-[10px] text-white/35">
+                        <span className="ms-1 text-[10px] text-[var(--brand-muted)]">
                           ({l.station})
                         </span>
                       )}
                     </span>
-                    <span className="text-white/50">
+                    <span className="text-[var(--brand-muted)]">
                       {formatPrice(l.lineTotal, currency, "ar")}
                     </span>
                   </li>
@@ -424,10 +424,10 @@ export function StaffOrdersBoard({
                     key={a.status}
                     type="button"
                     onClick={() => setStatus(o.id, a.status)}
-                    className={`min-h-11 rounded-md px-3 text-sm font-semibold ${
+                    className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
                       a.status === "cancelled"
-                        ? "border border-red-400/50 text-red-300"
-                        : "bg-[#FACF1C] text-black"
+                        ? "border border-red-300 text-red-700"
+                        : "bg-[var(--brand-primary)] text-white"
                     }`}
                   >
                     {a.label}
@@ -436,7 +436,7 @@ export function StaffOrdersBoard({
                 <button
                   type="button"
                   onClick={() => printKitchen(o)}
-                  className="min-h-11 rounded-md border border-white/25 px-3 text-sm font-semibold text-white/90"
+                  className="min-h-11 rounded-xl border border-[var(--brand-line)] bg-white px-3 text-sm font-semibold"
                 >
                   طباعة مطبخ
                 </button>
@@ -465,7 +465,7 @@ export function StaffOrdersBoard({
       </ul>
 
       {visible.length === 0 && !error && (
-        <p className="py-20 text-center text-white/40">
+        <p className="py-20 text-center text-[var(--brand-muted)]">
           {orders.length === 0
             ? "لا توجد طلبات مفتوحة"
             : "لا طلبات في هذا الفلتر"}

@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { TablesClient } from "./tables-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,10 @@ export default async function TablesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">الطاولات والمناطق</h1>
-        <p className="text-sm text-black/50">
-          أضف / عدّل / أخفِ الطاولات بحرية. الزائر يختار من القائمة النشطة فقط.
-        </p>
-      </div>
+      <PageHeader
+        title="الطاولات"
+        description="أضف أو عدّل الطاولات. الزائر يختار من القائمة النشطة فقط."
+      />
       <TablesClient zonesEnabled={f.zonesIndoorOutdoor} />
     </div>
   );

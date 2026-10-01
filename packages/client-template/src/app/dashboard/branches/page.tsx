@@ -3,6 +3,7 @@ import { getSessionRole, isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { hasMultiBranch } from "@/lib/extensions/ordering";
 import { BranchesClient } from "./branches-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,10 @@ export default async function BranchesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">الفروع</h1>
-        <p className="text-sm text-black/50">
-          منيو واحد مشترك — لكل فرع مخزون مستقل وأسعار اختيارية.
-        </p>
-      </div>
+      <PageHeader
+        title="الفروع"
+        description="منيو واحد مشترك — لكل فرع مخزون مستقل وأسعار اختيارية."
+      />
       <BranchesClient currency={brand.currency || "EGP"} />
     </div>
   );

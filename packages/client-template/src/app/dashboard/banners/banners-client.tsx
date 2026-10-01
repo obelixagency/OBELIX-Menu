@@ -16,6 +16,7 @@ import type { Banner } from "@/lib/types";
 export default function BannersClient() {
   const router = useRouter();
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [promoEnabled, setPromoEnabled] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +24,7 @@ export default function BannersClient() {
     const res = await fetch("/api/banners");
     const data = await res.json();
     setBanners(data.all || data.banners || []);
+    if (typeof data.promoEnabled === "boolean") setPromoEnabled(data.promoEnabled);
   }
 
   useEffect(() => {
@@ -75,11 +77,35 @@ export default function BannersClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">بانرات العروض</h1>
+        <h1 className="text-2xl font-bold leading-8">العروض</h1>
         <p className="text-sm text-black/50">
-          تظهر أعلى المنيو العام كشريط / كاروسيل. بدون صور = لا يظهر شيء.
+          اختياري. لو موقوف أو مفيش صورة ظاهرة، هيدر المنيو يبقى اللوجو والاسم والشعار فقط — من غير مساحة بانر.
         </p>
       </div>
+      <Card>
+        <CardContent className="flex min-h-14 items-center justify-between gap-3 p-4">
+          <div>
+            <p className="text-sm font-semibold">عرض البانر أعلى المنيو</p>
+            <p className="text-xs text-[var(--brand-muted)]">
+              {promoEnabled ? "ظاهر للضيوف" : "موقوف — لا مساحة بانر"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant={promoEnabled ? "default" : "outline"}
+            onClick={async () => {
+              await fetch("/api/banners", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ promoEnabled: !promoEnabled }),
+              });
+              await load();
+            }}
+          >
+            {promoEnabled ? "مفعّل" : "موقوف"}
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">رفع بانر</CardTitle>

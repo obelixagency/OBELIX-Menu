@@ -59,19 +59,25 @@ export async function GET(req: NextRequest) {
   const catalog = products
     .filter((p) => p.available)
     .map((p) => {
-      const cat = p.categoryId ? catMap.get(p.categoryId) : null;
+      const cat = p.categoryId ? catMap.get(p.categoryId) : undefined;
       const discount = resolveDiscount(p, cat || undefined);
       const pricing = priceAfterDiscount(p.price, discount);
       const stockQty = invOn ? (stock[p.id] ?? 0) : null;
+      const groups = p.optionGroups || [];
       return {
         id: p.id,
         categoryId: p.categoryId,
         name: p.name,
         nameEn: p.nameEn || p.name,
         price: pricing.final,
+        rawPrice: p.price,
+        hasDiscount: pricing.hasDiscount,
+        priceOriginal: pricing.original,
+        discount,
         image: p.image,
         stockQty,
         outOfStock: invOn ? (stock[p.id] ?? 0) <= 0 : false,
+        optionGroups: groups,
       };
     });
 

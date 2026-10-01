@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { normalizeOrderingFeatures } from "@/lib/extensions/ordering";
 import { StationsClient } from "./stations-client";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,10 @@ export default async function StationsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">توجيه المحطات</h1>
-        <p className="text-sm text-black/50">
-          حسب الفئة — مطبخ أو باريستا (تخصيص لكل صنف لاحقاً).
-        </p>
-      </div>
+      <PageHeader
+        title="المحطات"
+        description="توجيه الأصناف للمطبخ أو البار حسب الفئة."
+      />
       <StationsClient />
     </div>
   );

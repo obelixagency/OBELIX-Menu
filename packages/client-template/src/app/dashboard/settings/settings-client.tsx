@@ -19,6 +19,8 @@ export default function SettingsClient() {
   const [email, setEmail] = useState("");
   const [bgUrl, setBgUrl] = useState<string | null>(null);
   const [currency, setCurrency] = useState("EGP");
+  const [slogan, setSlogan] = useState("");
+  const [sloganEn, setSloganEn] = useState("");
   const [saving, setSaving] = useState(false);
   const [alertSaving, setAlertSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -42,6 +44,8 @@ export default function SettingsClient() {
       setEmail(brandData.brand?.notificationEmail || "");
       setBgUrl(brandData.brand?.menuBackgroundUrl || null);
       setCurrency(brandData.brand?.currency || "EGP");
+      setSlogan(brandData.brand?.slogan || "");
+      setSloganEn(brandData.brand?.sloganEn || "");
       const a = cfg.settings?.alerts;
       if (a) {
         setAlertOnDelivery(a.alertOnDelivery !== false);
@@ -71,6 +75,8 @@ export default function SettingsClient() {
         body: JSON.stringify({
           notificationEmail: email,
           menuBackgroundUrl: bgUrl,
+          slogan,
+          sloganEn,
         }),
       });
       const data = await res.json();
@@ -183,7 +189,42 @@ export default function SettingsClient() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">إعدادات المنيو</h1>
+      <h1 className="text-2xl font-bold leading-8">الإعدادات</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">شعار المنيو</CardTitle>
+          <CardDescription>
+            يظهر تحت اسم المكان عندما لا يوجد بانر عروض.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="slogan">سطر عربي</Label>
+            <Input
+              id="slogan"
+              value={slogan}
+              onChange={(e) => setSlogan(e.target.value)}
+              placeholder="اطلب من الموبايل"
+            />
+          </div>
+          <div>
+            <Label htmlFor="sloganEn">English line</Label>
+            <Input
+              id="sloganEn"
+              value={sloganEn}
+              onChange={(e) => setSloganEn(e.target.value)}
+              dir="ltr"
+              className="text-left"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="button" onClick={() => void save({ preventDefault() {} } as FormEvent)}>
+              حفظ الشعار
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

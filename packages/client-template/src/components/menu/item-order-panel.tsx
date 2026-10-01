@@ -5,6 +5,17 @@ import { formatPrice } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n";
 import { CartProvider, useCart } from "@/components/menu/cart-context";
 import { CartCheckout } from "@/components/menu/cart-checkout";
+import { OptionPicker } from "@/components/menu/option-picker";
+import {
+  configuredBasePrice,
+  lineKey,
+  optionLabels,
+  priceAfterDiscount,
+  resolveDiscount,
+  type Category,
+  type OptionSelection,
+  type Product,
+} from "@/lib/types";
 
 type Props = {
   locale: Locale;
@@ -17,13 +28,8 @@ type Props = {
   /** Remaining stock; null when inventory tracking is off */
   stockQty?: number | null;
   branchId?: string;
-  item: {
-    itemId: string;
-    name: string;
-    nameEn?: string;
-    unitPrice: number;
-    image?: string | null;
-  };
+  product: Product;
+  category?: Category | null;
 };
 
 export function ItemOrderPanel(props: Props) {
@@ -43,7 +49,8 @@ function ItemOrderPanelInner({
   guestNoteEnabled,
   stockQty = null,
   branchId,
-  item,
+  product,
+  category,
 }: Props) {
   const cart = useCart();
   const maxQty =
@@ -52,30 +59,49 @@ function ItemOrderPanelInner({
       : 99;
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const ar = locale === "ar";
+  const hasOptions = (product.optionGroups || []).length > 0;
+  const discount = resolveDiscount(product, category);
+  const shelf = priceAfterDiscount(product.price, discount);
 
-  function add() {
+  function commit(selections: OptionSelection[] = [], count: number) {
     setErr(null);
     if (typeof stockQty === "number") {
-      const inCart =
-        cart.lines.find((l) => l.itemId === item.itemId)?.qty || 0;
-      if (inCart + qty > stockQty) {
-        setErr(
-          ar ? `المتبقي ${stockQty} فقط` : `Only ${stockQty} left`
-        );
+      const inCart = cart.lines
+        .filter((l) => l.itemId === product.id)
+        .reduce((s, l) => s + l.qty, 0);
+      if (inCart + count > stockQty) {
+        setErr(ar ? `المتبقي ${stockQty} فقط` : `Only ${stockQty} left`);
         return;
       }
     }
+    const base = configuredBasePrice(product, selections);
+    const pricing = priceAfterDiscount(base, discount);
+    const extrasAr = optionLabels(product, selections, "ar");
+    const extrasEn = optionLabels(product, selections, "en");
     cart.addItem(
       {
-        itemId: item.itemId,
-        name: item.name,
-        nameEn: item.nameEn,
-        unitPrice: item.unitPrice,
-        image: item.image,
+        itemId: product.id,
+        lineKey: lineKey(product.id, selections),
+        name: extrasAr.length ? `${product.name} · ${extrasAr.join(" · ")}` : product.name,
+        nameEn: extrasEn.length
+          ? `${product.nameEn || product.name} · ${extrasEn.join(" · ")}`
+          : product.nameEn,
+        unitPrice: pricing.final,
+        image: product.image,
+        options: selections,
       },
-      qty
+      count
     );
+  }
+
+  function add() {
+    if (hasOptions) {
+      setPicking(true);
+      return;
+    }
+    commit([], qty);
   }
 
   return (
@@ -113,6 +139,11 @@ function ItemOrderPanelInner({
             {ar ? `متبقي ${stockQty}` : `${stockQty} left`}
           </p>
         )}
+        {hasOptions && (
+          <p className="mt-2 text-xs text-black/45">
+            {ar ? "اختر الحجم أو الإضافة قبل الإضافة للسلة" : "Choose size or extras before adding"}
+          </p>
+        )}
         {err && (
           <p className="mt-2 text-xs font-medium text-red-600">{err}</p>
         )}
@@ -124,9 +155,11 @@ function ItemOrderPanelInner({
           style={{ background: "var(--brand-primary)" }}
         >
           {ar ? "أضف للسلة" : "Add to cart"}
-          <span className="opacity-90">
-            · {formatPrice(item.unitPrice * qty, currency, locale)}
-          </span>
+          {!hasOptions && (
+            <span className="opacity-90">
+              · {formatPrice(shelf.final * qty, currency, locale)}
+            </span>
+          )}
         </button>
       </div>
 
@@ -142,6 +175,20 @@ function ItemOrderPanelInner({
           </span>
           <span>{formatPrice(cart.subtotal, currency, locale)}</span>
         </button>
+      )}
+
+      {picking && (
+        <OptionPicker
+          product={product}
+          category={category}
+          locale={locale}
+          currency={currency}
+          onCancel={() => setPicking(false)}
+          onConfirm={(selections) => {
+            commit(selections, qty);
+            setPicking(false);
+          }}
+        />
       )}
 
       <CartCheckout
