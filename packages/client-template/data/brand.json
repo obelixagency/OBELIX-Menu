@@ -19,6 +19,7 @@
       "orderFromMenu": true,
       "tableOrderingEnabled": true,
       "deliveryEnabled": true,
+      "pickupEnabled": true,
       "zonesIndoorOutdoor": true,
       "cashierScreen": true,
       "kitchenScreen": true,
