@@ -81,9 +81,9 @@ ABS_DIR="${REMOTE_DIR/#\~/$REMOTE_HOME}"
   echo "  Require all denied"
   echo "</FilesMatch>"
   # Apache serves any file that physically exists here — block internals.
-  echo 'RedirectMatch 404 "/\\.(?!well-known/)"'
+  echo 'RedirectMatch 404 "/\.(?!well-known/)"'
   echo 'RedirectMatch 404 "(?i)/(data|src|tmp|node_modules)(/|$)"'
-  echo 'RedirectMatch 404 "(?i)/(package(-lock)?\\.json|server\\.js|app\\.js|DEPLOY_REVISION\\.txt|[^/]*\\.log|[^/]*\\.md)$"'
+  echo 'RedirectMatch 404 "(?i)/(package(-lock)?\.json|server\.js|app\.js|DEPLOY_REVISION\.txt|[^/]*\.log|[^/]*\.md)$"'
 } > "$OUT/.htaccess"
 
 TAR="$(dirname "$OUT")/$SLUG-release.tar.gz"
