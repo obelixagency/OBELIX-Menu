@@ -50,3 +50,9 @@ RedirectMatch 404 "(?i)/(package(-lock)?\.json|pnpm-lock\.yaml|pnpm-workspace\.y
 - Pilot (`public_html/pilot`) and agency (`public_html/apps/agency` + `public_html/packages/client-template`) replaced; live `data/`, `public/uploads`, `.env`, `.htaccess` kept.
 - Agency is now a flat npm standalone inside `apps/agency/` (no pnpm symlinks — the Hostinger File Browser can't create them).
 - Previous code moved outside the web root to `~/domains/menu.obelixagency.com/backup-deploy-20261022/`.
+
+### 2026-10-22 — release f4af5cc (Excel import + AI menu reader)
+- Pilot + agency replaced; live data/uploads/.env kept. Old code in `backup-deploy-20261022b/`.
+- Faster upload: put one `.tar.gz` and extract it on the server with the File Browser
+  `PATCH /api/resources/<archive>?action=unarchive&destination=<dir>` (seconds instead of ~2000 single uploads).
+- Agency AI reader needs `GEMINI_API_KEY` in `public_html/apps/agency/.env` (+ restart).
