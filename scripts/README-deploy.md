@@ -27,3 +27,21 @@ When redeploying the agency app into `~/domains/menu.obelixagency.com/public_htm
 
 ## Reserved slugs
 login, logout, api, clients, pilot, uploads, _next, dashboard, static, icons, generated, tmp
+
+## Server hardening (applied live 22 Oct 2026)
+Apache serves any file that physically exists under `public_html`, before Passenger.
+Without these rules `data/*.json` (orders, phones, users) and the agency's
+`apps/agency/data/clients.json` were publicly downloadable. The root
+`public_html/.htaccess` must keep:
+
+```apache
+RedirectMatch 404 "/\.(?!well-known/)"
+RedirectMatch 404 "(?i)/(data|apps|packages|node_modules|src|tmp|generated|backup[^/]*|pilot-old[^/]*)(/|$)"
+RedirectMatch 404 "(?i)/(package(-lock)?\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|server\.js|app\.js|DEPLOY_REVISION\.txt|[^/]*\.log|[^/]*\.zip|[^/]*\.tar\.gz|[^/]*\.bak[^/]*|[^/]*\.md)$"
+```
+`deploy-client.sh` writes equivalent rules into every client's own `.htaccess`.
+
+## Pilot deploy log
+- 22 Oct 2026: `cursor/sales-ready-c959@da21a0a` uploaded via hPanel File Manager
+  into `public_html/pilot` (flat standalone + `app.js`). Previous build kept at
+  `public_html/pilot-old-20261022` for rollback (rename back to `pilot`).
