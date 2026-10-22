@@ -45,3 +45,8 @@ RedirectMatch 404 "(?i)/(package(-lock)?\.json|pnpm-lock\.yaml|pnpm-workspace\.y
 - 22 Oct 2026: `cursor/sales-ready-c959@da21a0a` uploaded via hPanel File Manager
   into `public_html/pilot` (flat standalone + `app.js`). Previous build kept at
   `public_html/pilot-old-20261022` for rollback (rename back to `pilot`).
+
+### 2026-10-22 — release 68bccdf (security)
+- Pilot (`public_html/pilot`) and agency (`public_html/apps/agency` + `public_html/packages/client-template`) replaced; live `data/`, `public/uploads`, `.env`, `.htaccess` kept.
+- Agency is now a flat npm standalone inside `apps/agency/` (no pnpm symlinks — the Hostinger File Browser can't create them).
+- Previous code moved outside the web root to `~/domains/menu.obelixagency.com/backup-deploy-20261022/`.
