@@ -1,4 +1,5 @@
 "use client";
+import { mediaUrl } from "@/lib/base-path";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -571,7 +572,7 @@ export default function ProductsClient() {
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--brand-surface)]">
               {p.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image} alt="" className="h-full w-full object-cover" />
+                <img src={mediaUrl(p.image) ?? undefined} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span className="text-sm font-bold text-[var(--brand-primary)]/40">
                   {p.name.slice(0, 1)}

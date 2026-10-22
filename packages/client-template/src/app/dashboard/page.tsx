@@ -1,3 +1,4 @@
+import { mediaUrl } from "@/lib/base-path";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated } from "@/lib/auth";
@@ -166,7 +167,7 @@ export default async function DashboardHome() {
             {brand.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={brand.logoUrl}
+                src={mediaUrl(brand.logoUrl) ?? undefined}
                 alt=""
                 className="h-14 w-14 rounded-2xl object-contain ring-1 ring-[var(--brand-line)]"
               />

@@ -11,6 +11,19 @@ import {
 import { normalizeOrderingFeatures } from "./extensions/ordering";
 
 const COOKIE = "obelix_client_session";
+/** Sessions expire after 7 days. */
+export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Cookie options scoped to this client app's path (e.g. /pilot or /<slug>). */
+export function sessionCookieOptions(maxAgeSeconds: number) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: process.env.NEXT_PUBLIC_BASE_PATH || "/",
+    maxAge: maxAgeSeconds,
+  };
+}
 
 export type SessionPayload = {
   ok: true;
@@ -56,8 +69,7 @@ function decodePayload(raw: string): SessionPayload | null {
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
-  const brand = await readBrand();
-  const expected = getDashboardPassword(brand);
+  const expected = await getDashboardPassword();
   try {
     const a = Buffer.from(password);
     const b = Buffer.from(expected);
@@ -98,7 +110,13 @@ export async function readSession(): Promise<SessionPayload | null> {
   } catch {
     return null;
   }
-  return decodePayload(encoded);
+  const payload = decodePayload(encoded);
+  if (!payload) return null;
+  // Expire old sessions and reject sessions minted for another client app.
+  if (!payload.ts || Date.now() - payload.ts > SESSION_TTL_MS) return null;
+  const brand = await readBrand();
+  if (payload.slug !== brand.slug) return null;
+  return payload;
 }
 
 export async function isAuthenticated(): Promise<boolean> {
@@ -133,7 +151,7 @@ export async function attemptLogin(input: {
   }
 
   if (features.staffAccountsEnabled) {
-    await ensureSeedOwner(getDashboardPassword(brand));
+    await ensureSeedOwner(await getDashboardPassword());
     const user = await findUserByUsername(username);
     if (!user || !user.active || !verifyPasswordHash(password, user.passwordHash)) {
       return { ok: false, error: "Invalid username or password" };

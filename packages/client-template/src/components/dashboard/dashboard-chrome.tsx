@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { withBasePath } from "@/lib/base-path";
+import { withBasePath, mediaUrl } from "@/lib/base-path";
 import { dirFor, type Locale } from "@/lib/i18n";
 import {
   isNavActive,
@@ -108,7 +108,7 @@ export function DashboardChrome({
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={logoUrl}
+                src={mediaUrl(logoUrl) ?? undefined}
                 alt=""
                 className="h-10 w-10 rounded-full object-contain ring-1 ring-black/10"
               />
@@ -177,7 +177,7 @@ export function DashboardChrome({
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={logoUrl}
+                  src={mediaUrl(logoUrl) ?? undefined}
                   alt=""
                   className="h-8 w-8 rounded-full object-contain"
                 />

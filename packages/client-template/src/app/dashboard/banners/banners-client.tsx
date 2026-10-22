@@ -1,4 +1,5 @@
 "use client";
+import { mediaUrl } from "@/lib/base-path";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -149,7 +150,7 @@ export default function BannersClient() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={b.imageUrl}
+              src={mediaUrl(b.imageUrl) ?? undefined}
               alt=""
               className="aspect-[21/9] w-full object-cover"
             />

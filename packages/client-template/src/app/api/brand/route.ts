@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import { isAuthenticated } from "@/lib/auth";
-import { readBrand } from "@/lib/brand";
+import { readBrand, toPublicBrand, writeBrand } from "@/lib/brand";
 import { normalizePayments } from "@/lib/payments";
 
 export async function GET() {
   const brand = await readBrand();
-  const { dashboardPassword: _, ...publicBrand } = brand;
+  // Owner dashboard needs notificationEmail; guests get the public view only.
+  const authed = await isAuthenticated();
+  const { dashboardPassword: _, ...safe } = authed ? brand : toPublicBrand(brand);
   void _;
-  return NextResponse.json({ brand: publicBrand });
+  return NextResponse.json({ brand: safe });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -66,8 +66,7 @@ export async function PATCH(req: NextRequest) {
             : normalizePayments(brand.extensions.payments),
       },
     };
-    const file = path.join(process.cwd(), "data", "brand.json");
-    await fs.writeFile(file, JSON.stringify(next, null, 2), "utf8");
+    await writeBrand(next);
     const { dashboardPassword: __, ...publicBrand } = next;
     void __;
     return NextResponse.json({ brand: publicBrand });

@@ -36,7 +36,18 @@ async function isValidSession(raw: string | undefined): Promise<boolean> {
   for (let i = 0; i < expected.length; i++) {
     if (expected[i] !== sig[i]) ok = false;
   }
-  return ok;
+  if (!ok) return false;
+  // Reject expired sessions (7 days); slug binding is checked server-side.
+  try {
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = JSON.parse(atob(b64 + "===".slice((b64.length + 3) % 4)));
+    if (typeof json?.ts === "number" && Date.now() - json.ts > 7 * 24 * 60 * 60 * 1000) {
+      return false;
+    }
+  } catch {
+    // legacy "ok:slug:ts" payloads fall through to server checks
+  }
+  return true;
 }
 
 export async function middleware(req: NextRequest) {

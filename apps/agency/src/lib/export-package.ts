@@ -6,8 +6,12 @@ import archiver from "archiver";
 import type { ClientRecord } from "./types";
 import { normalizeOrderingFeatures } from "./types";
 import { getUploadsDir, updateClient } from "./clients";
+import { randomBytes } from "crypto";
 
 const IGNORE = new Set([
+  ".env",
+  ".env.local",
+  ".dashboard-secret",
   "node_modules",
   ".next",
   ".git",
@@ -167,6 +171,7 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
   await copyDir(templateDir, packageDir);
 
   const ordering = normalizeOrderingFeatures(client.ordering);
+  const hosting = resolveHosting(client);
   const brand = {
     displayName: client.displayName,
     slug: client.slug,
@@ -174,8 +179,7 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     colors: client.colors,
     font: client.font,
     currency: client.currency || "EGP",
-    domain: client.domain,
-    dashboardPassword: client.dashboardPassword,
+    domain: hosting.publicUrl,
     languages: client.languages || "both",
     notificationEmail: null,
     menuBackgroundUrl: client.menuBackgroundPath
@@ -193,6 +197,9 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     },
   };
 
+  // Never ship the template's demo runtime data into a real client.
+  await fs.rm(path.join(packageDir, "data"), { recursive: true, force: true });
+  await fs.rm(path.join(packageDir, "public", "uploads"), { recursive: true, force: true });
   await fs.mkdir(path.join(packageDir, "data"), { recursive: true });
   await fs.mkdir(path.join(packageDir, "public", "uploads"), { recursive: true });
   await fs.writeFile(
@@ -236,14 +243,39 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     JSON.stringify({ suppliers: [], purchases: [], payments: [] }, null, 2),
     "utf8"
   );
+  // Runtime secrets live in .env (never in brand.json). One random session
+  // secret per client so sessions can never cross between client apps.
+  const sessionSecret = randomBytes(32).toString("hex");
+  const envLines = [
+    `# ${client.displayName} — generated ${new Date().toISOString()}`,
+    `DASHBOARD_PASSWORD=${client.dashboardPassword}`,
+    `SESSION_SECRET=${sessionSecret}`,
+    `NEXT_BASE_PATH=${hosting.basePath}`,
+    `PORT=3000`,
+    "",
+  ];
+  await fs.writeFile(path.join(packageDir, ".env"), envLines.join("\n"), "utf8");
   await fs.writeFile(
     path.join(packageDir, ".env.example"),
-    `DASHBOARD_PASSWORD=${client.dashboardPassword}\nPORT=3000\n`,
+    "DASHBOARD_PASSWORD=change-me\nSESSION_SECRET=change-me-long-random\nNEXT_BASE_PATH=\nPORT=3000\n",
     "utf8"
   );
   await fs.writeFile(
-    path.join(packageDir, ".env.local"),
-    `DASHBOARD_PASSWORD=${client.dashboardPassword}\n`,
+    path.join(packageDir, "OBELIX-DEPLOY.json"),
+    JSON.stringify(
+      {
+        slug: client.slug,
+        displayName: client.displayName,
+        mode: hosting.mode,
+        basePath: hosting.basePath,
+        publicUrl: hosting.publicUrl,
+        loginUrl: `${hosting.publicUrl}/dashboard/login`,
+        remoteDir: hosting.remoteDir,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    ),
     "utf8"
   );
 
@@ -294,6 +326,40 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
   });
 
   return { packageDir, zipPath };
+}
+
+/** Where/how this client is served. Default: free sub-path on the OBELIX host. */
+export function resolveHosting(client: ClientRecord): {
+  mode: "obelix-subpath" | "custom-domain";
+  basePath: string;
+  publicUrl: string;
+  remoteDir: string;
+} {
+  const host = (process.env.OBELIX_MENU_HOST || "menu.obelixagency.com").trim();
+  const domain = String(client.domain || "")
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+  const isCustom =
+    !!domain &&
+    !domain.endsWith("obelixagency.com") &&
+    !domain.endsWith(".example.com") &&
+    domain.includes(".");
+  if (isCustom) {
+    return {
+      mode: "custom-domain",
+      basePath: "",
+      publicUrl: `https://${domain}`,
+      remoteDir: `~/domains/${domain}/public_html`,
+    };
+  }
+  return {
+    mode: "obelix-subpath",
+    basePath: `/${client.slug}`,
+    publicUrl: `https://${host}/${client.slug}`,
+    remoteDir: `~/domains/${host}/public_html/${client.slug}`,
+  };
 }
 
 async function zipDirectory(sourceDir: string, outPath: string) {

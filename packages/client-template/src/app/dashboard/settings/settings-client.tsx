@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { withBasePath } from "@/lib/base-path";
+import { withBasePath, mediaUrl } from "@/lib/base-path";
 
 export default function SettingsClient() {
   const router = useRouter();
@@ -560,7 +560,7 @@ export default function SettingsClient() {
           {bgUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={bgUrl}
+              src={mediaUrl(bgUrl) ?? undefined}
               alt=""
               className="aspect-video w-full max-w-md rounded-lg object-cover"
             />

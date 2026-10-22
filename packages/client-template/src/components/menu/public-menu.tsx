@@ -1,4 +1,5 @@
 "use client";
+import { mediaUrl } from "@/lib/base-path";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -188,7 +189,7 @@ function PublicMenuInner({
   }, [products, query, currentParent]);
 
   const visibleReviews = reviews.filter((r) => r.visible).slice(0, 6);
-  const bg = brand.menuBackgroundUrl;
+  const bg = mediaUrl(brand.menuBackgroundUrl);
 
   return (
     <div
@@ -223,7 +224,7 @@ function PublicMenuInner({
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={brand.logoUrl}
+              src={mediaUrl(brand.logoUrl) ?? undefined}
               alt={brand.displayName}
               className="h-11 w-11 rounded-full bg-white object-contain p-0.5 shadow-sm ring-1 ring-[var(--brand-line)]"
             />
@@ -612,7 +613,7 @@ function ProductCard({
         >
           {product.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.image} alt="" className="h-full w-full object-cover" />
+            <img src={mediaUrl(product.image) ?? undefined} alt="" className="h-full w-full object-cover" />
           ) : (
             <span className="text-xl font-bold text-[var(--brand-primary)]/40">
               {title.slice(0, 1)}

@@ -1,3 +1,4 @@
+import { mediaUrl } from "@/lib/base-path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { readBrand, defaultLocale } from "@/lib/brand";
@@ -60,7 +61,7 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
   const reviews = (await listReviews()).filter(
     (r) => r.visible && r.productId === product.id
   );
-  const bg = brand.menuBackgroundUrl;
+  const bg = mediaUrl(brand.menuBackgroundUrl);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--brand-surface)]">
@@ -91,7 +92,7 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
           {product.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={product.image}
+              src={mediaUrl(product.image) ?? undefined}
               alt={title}
               className="h-full w-full object-cover"
             />

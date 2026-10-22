@@ -425,7 +425,7 @@ export function StaffOrdersBoard({
                       {l.qty}× {l.nameAr || l.name}
                       {!showAllLines ? null : (
                         <span className="ms-1 text-[10px] text-[var(--brand-muted)]">
-                          ({l.station})
+                          ({l.station === "barista" ? "بار" : l.station === "kitchen" ? "مطبخ" : l.station})
                         </span>
                       )}
                     </span>

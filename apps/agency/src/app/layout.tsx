@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Cairo } from "next/font/google";
+import localFont from "next/font/local";
 import { AgencyHeader } from "@/components/agency-header";
 import { AgencyLocaleProvider } from "@/components/locale-provider";
 import {
@@ -12,11 +12,9 @@ import {
 } from "@/lib/i18n";
 import "./globals.css";
 
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
+// Self-hosted Cairo (no Google Fonts at build/runtime)
+const cairoLatin = localFont({ src: [{ path: "./fonts/cairo-latin-400-normal.woff2", weight: "400", style: "normal" },{ path: "./fonts/cairo-latin-500-normal.woff2", weight: "500", style: "normal" },{ path: "./fonts/cairo-latin-600-normal.woff2", weight: "600", style: "normal" },{ path: "./fonts/cairo-latin-700-normal.woff2", weight: "700", style: "normal" },{ path: "./fonts/cairo-latin-800-normal.woff2", weight: "800", style: "normal" }], variable: "--font-cairo-latin", display: "swap" });
+const cairo = localFont({ src: [{ path: "./fonts/cairo-arabic-400-normal.woff2", weight: "400", style: "normal" },{ path: "./fonts/cairo-arabic-500-normal.woff2", weight: "500", style: "normal" },{ path: "./fonts/cairo-arabic-600-normal.woff2", weight: "600", style: "normal" },{ path: "./fonts/cairo-arabic-700-normal.woff2", weight: "700", style: "normal" },{ path: "./fonts/cairo-arabic-800-normal.woff2", weight: "800", style: "normal" }], variable: "--font-cairo", display: "swap" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const jar = await cookies();
@@ -45,7 +43,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body className={`${cairo.variable} font-sans antialiased`}>
+      <body className={`${cairoLatin.variable} ${cairo.variable} font-sans antialiased`}>
         <AgencyLocaleProvider initialLocale={locale}>
           <div className="relative flex min-h-screen w-full">
             <AgencyHeader />

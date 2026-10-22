@@ -15,7 +15,7 @@ export default async function BarPage() {
   }
   return (
     <StaffOrdersBoard
-      title="Bar"
+      title="البار"
       role="station"
       currency={brand.currency || "EGP"}
       stationFilter="barista"

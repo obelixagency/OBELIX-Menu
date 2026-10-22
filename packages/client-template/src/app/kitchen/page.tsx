@@ -15,7 +15,7 @@ export default async function KitchenPage() {
   }
   return (
     <StaffOrdersBoard
-      title="Kitchen"
+      title="المطبخ"
       role="station"
       currency={brand.currency || "EGP"}
       stationFilter="kitchen"

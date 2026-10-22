@@ -1,4 +1,4 @@
-import { readBrand } from "@/lib/brand";
+import { readBrand, toPublicBrand } from "@/lib/brand";
 import {
   isPromoEnabled,
   listBanners,
@@ -46,7 +46,7 @@ export default async function HomePage({ searchParams }: Props) {
 
   return (
     <PublicMenu
-      brand={brand}
+      brand={toPublicBrand(brand)}
       categories={categories}
       products={products}
       contacts={contacts}

@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ review, mail }, { status: 201 });
+    if (mail.error) console.error("[reviews] mail failed:", mail.error);
+    return NextResponse.json({ review: { id: review.id }, mail: { sent: mail.sent } }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "فشل";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -42,7 +42,7 @@ export async function GET() {
   const gate = await requireOwner();
   if ("error" in gate && gate.error) return gate.error;
   const brand = await readBrand();
-  await ensureSeedOwner(getDashboardPassword(brand));
+  await ensureSeedOwner(await getDashboardPassword());
   const users = await listUsers();
   const session = await readSession();
   return NextResponse.json({

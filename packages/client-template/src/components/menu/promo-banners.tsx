@@ -1,4 +1,5 @@
 "use client";
+import { mediaUrl } from "@/lib/base-path";
 
 import { useEffect, useState } from "react";
 import type { Banner } from "@/lib/types";
@@ -25,7 +26,7 @@ export function PromoBannerCarousel({ banners }: { banners: Banner[] }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           key={current.id}
-          src={current.imageUrl}
+          src={mediaUrl(current.imageUrl) ?? undefined}
           alt=""
           className="h-full w-full object-cover animate-soft-in"
         />

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         { headers: noStoreHeaders() }
       );
       res.cookies.set(BRANCH_COOKIE, id, {
-        path: "/",
+        path: process.env.NEXT_PUBLIC_BASE_PATH || "/",
         sameSite: "lax",
         httpOnly: false,
         maxAge: 60 * 60 * 24 * 365,

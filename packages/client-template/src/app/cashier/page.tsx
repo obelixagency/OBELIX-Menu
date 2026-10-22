@@ -15,7 +15,7 @@ export default async function CashierPage() {
   }
   return (
     <StaffOrdersBoard
-      title="Cashier"
+      title="الكاشير"
       role="cashier"
       currency={brand.currency || "EGP"}
       showAllLines
