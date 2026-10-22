@@ -1,3 +1,4 @@
+import { requireAgency } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
@@ -6,6 +7,8 @@ import { getClient, getUploadsDir, updateClient } from "@/lib/clients";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const client = await getClient(id);
   if (!client) {

@@ -1,12 +1,17 @@
+import { requireAgency } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, listClients } from "@/lib/clients";
 
 export async function GET() {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const clients = await listClients();
   return NextResponse.json({ clients });
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   try {
     const body = await req.json();
     if (!body.name || typeof body.name !== "string") {

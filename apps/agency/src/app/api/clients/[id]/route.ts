@@ -1,9 +1,12 @@
+import { requireAgency } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getClient, updateClient } from "@/lib/clients";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const client = await getClient(id);
   if (!client) {
@@ -13,6 +16,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const client = await getClient(id);
   if (!client) {

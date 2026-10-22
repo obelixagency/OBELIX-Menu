@@ -60,18 +60,29 @@ export async function createSessionCookie(): Promise<string> {
   return `${payload}.${sign(payload)}`;
 }
 
+/** Agency sessions expire after 7 days. */
+export const AGENCY_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export async function isAuthenticated(): Promise<boolean> {
   const jar = await cookies();
   const raw = jar.get(COOKIE)?.value;
   if (!raw) return false;
   const [payload, sig] = raw.split(".");
-  if (!payload || !sig) return false;
+  if (!payload || !sig || !payload.startsWith("ok:agency:")) return false;
   const expected = sign(payload);
   try {
-    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
   } catch {
     return false;
   }
+  const ts = Number(payload.split(":")[2]) || 0;
+  return Date.now() - ts < AGENCY_SESSION_TTL_MS;
+}
+
+/** Returns a 401 response when the agency session is missing/expired. */
+export async function requireAgency(): Promise<Response | null> {
+  if (await isAuthenticated()) return null;
+  return Response.json({ error: "غير مصرح" }, { status: 401 });
 }
 
 export { COOKIE, getUsername as getAgencyUsername };

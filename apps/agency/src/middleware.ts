@@ -42,7 +42,9 @@ async function isValidSession(raw: string | undefined): Promise<boolean> {
   for (let i = 0; i < expected.length; i++) {
     if (expected[i] !== sig[i]) ok = false;
   }
-  return ok;
+  if (!ok) return false;
+  const ts = Number(payload.split(":")[2]) || 0;
+  return Date.now() - ts < 7 * 24 * 60 * 60 * 1000;
 }
 
 function withSecurityHeaders(res: NextResponse): NextResponse {

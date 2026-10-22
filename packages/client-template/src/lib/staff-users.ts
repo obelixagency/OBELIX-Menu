@@ -129,8 +129,8 @@ export async function createUser(input: {
   if (!username || username.length < 2) {
     throw new Error("Username too short");
   }
-  if (!input.password || input.password.length < 4) {
-    throw new Error("Password too short");
+  if (!input.password || input.password.length < 8) {
+    throw new Error("الباسورد لازم 8 حروف على الأقل / Password must be at least 8 characters");
   }
   if (!isStaffRole(input.role)) {
     throw new Error("Invalid role");
@@ -170,7 +170,7 @@ export async function updateUser(
     throw new Error("Invalid role");
   }
   if (patch.password !== undefined) {
-    if (patch.password.length < 4) throw new Error("Password too short");
+    if (patch.password.length < 8) throw new Error("الباسورد لازم 8 حروف على الأقل / Password must be at least 8 characters");
     current.passwordHash = hashPassword(patch.password);
   }
   if (patch.role) current.role = patch.role;

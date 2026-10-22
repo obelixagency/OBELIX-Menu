@@ -1,3 +1,4 @@
+import { requireAgency } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
@@ -7,6 +8,8 @@ import { exportClientPackage } from "@/lib/export-package";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(_req: NextRequest, ctx: Ctx) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const client = await getClient(id);
   if (!client) {
@@ -31,6 +34,8 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const denied = await requireAgency();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const client = await getClient(id);
   if (!client) {

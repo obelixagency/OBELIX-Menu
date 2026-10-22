@@ -521,6 +521,25 @@ export async function deleteContact(id: string) {
   await saveMenu(menu);
 }
 
+/** Review fields safe to show guests — never mobile, email or private notes. */
+export function toPublicReview(r: Review): Review {
+  return {
+    id: r.id,
+    createdAt: r.createdAt,
+    visible: r.visible,
+    overall: r.overall,
+    hygiene: r.hygiene,
+    taste: r.taste,
+    comeBack: r.comeBack,
+    firstVisit: r.firstVisit,
+    anythingElse: r.anythingElse,
+    name: r.name ? String(r.name).trim().split(/\s+/)[0] : undefined,
+    rating: r.rating,
+    comment: r.comment,
+    productId: r.productId ?? null,
+  };
+}
+
 export async function listReviews(): Promise<Review[]> {
   const menu = await ensureMenu();
   return [...menu.reviews].sort((a, b) =>

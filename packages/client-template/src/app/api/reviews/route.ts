@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createReview, listReviews } from "@/lib/menu-data";
+import { createReview, listReviews, toPublicReview } from "@/lib/menu-data";
 import { isAuthenticated } from "@/lib/auth";
 import { readBrand } from "@/lib/brand";
 import { sendRateFormEmail } from "@/lib/mail";
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ reviews: all });
   }
   return NextResponse.json({
-    reviews: all.filter((r) => r.visible),
+    reviews: all.filter((r) => r.visible).map(toPublicReview),
   });
 }
 

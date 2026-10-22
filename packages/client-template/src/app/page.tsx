@@ -6,6 +6,7 @@ import {
   listContacts,
   listProducts,
   listReviews,
+  toPublicReview,
 } from "@/lib/menu-data";
 import { getStockMap, isInventoryOn } from "@/lib/inventory-data";
 import {
@@ -50,7 +51,7 @@ export default async function HomePage({ searchParams }: Props) {
       categories={categories}
       products={products}
       contacts={contacts}
-      reviews={reviews}
+      reviews={reviews.filter((r) => r.visible).map(toPublicReview)}
       banners={
         promoOn
           ? banners.filter((b) => b.active && inSchedule(b.startsAt, b.endsAt))

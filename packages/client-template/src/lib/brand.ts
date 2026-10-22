@@ -110,21 +110,38 @@ export function brandCssVars(brand: BrandConfig): Record<string, string> {
   };
 }
 
-/** Owner password: env → data/.dashboard-secret → legacy brand.json field. */
+/**
+ * Owner password (shared login when staff accounts are off).
+ * Order: data/.dashboard-secret (set by the owner from Settings) → DASHBOARD_PASSWORD
+ * env (initial value from the agency) → legacy brand.json field.
+ */
 export async function getDashboardPassword(): Promise<string> {
-  if (process.env.DASHBOARD_PASSWORD) return process.env.DASHBOARD_PASSWORD;
   try {
     const secret = (await fs.readFile(SECRET_FILE, "utf8")).trim();
     if (secret) return secret;
   } catch {
-    // no secret file
+    // no secret file yet
   }
+  if (process.env.DASHBOARD_PASSWORD) return process.env.DASHBOARD_PASSWORD;
   const raw = await readBrandFile();
   if (raw?.dashboardPassword) return String(raw.dashboardPassword);
   if (process.env.NODE_ENV === "production") {
     console.warn("[obelix] DASHBOARD_PASSWORD is not set — using insecure default");
   }
   return "obelix123";
+}
+
+/** Persist a new shared owner password (data/.dashboard-secret, mode 600). */
+export async function setDashboardPassword(next: string): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(SECRET_FILE, next, { encoding: "utf8", mode: 0o600 });
+  // Drop any legacy plaintext copy from brand.json.
+  const raw = await readBrandFile();
+  if (raw && "dashboardPassword" in raw) {
+    const { dashboardPassword: _drop, ...rest } = raw as Record<string, unknown>;
+    void _drop;
+    await fs.writeFile(BRAND_FILE, JSON.stringify(rest, null, 2), "utf8");
+  }
 }
 
 export function defaultLocale(languages: LanguageMode): "ar" | "en" {

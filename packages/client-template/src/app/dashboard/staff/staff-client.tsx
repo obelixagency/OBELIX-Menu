@@ -30,6 +30,8 @@ export function StaffClient() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<StaffRow["role"]>("cashier");
   const [saving, setSaving] = useState(false);
+  const [resetOpen, setResetOpen] = useState<string | null>(null);
+  const [resetValues, setResetValues] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +90,29 @@ export function StaffClient() {
       return;
     }
     await load();
+  }
+
+  async function resetPassword(u: StaffRow) {
+    setError(null);
+    setMessage(null);
+    const pw = (resetValues[u.id] || "").trim();
+    if (pw.length < 8) {
+      setError("الباسورد لازم 8 حروف على الأقل");
+      return;
+    }
+    const res = await fetch("/api/staff", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: u.id, password: pw }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "حصلت مشكلة");
+      return;
+    }
+    setResetValues((v) => ({ ...v, [u.id]: "" }));
+    setResetOpen(null);
+    setMessage(`اتغيّر باسورد ${u.username}`);
   }
 
   async function removeUser(u: StaffRow) {
@@ -203,6 +228,14 @@ export function StaffClient() {
               type="button"
               size="sm"
               variant="secondary"
+              onClick={() => setResetOpen(resetOpen === u.id ? null : u.id)}
+            >
+              تغيير الباسورد
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
               onClick={() => toggleActive(u)}
             >
               {u.active ? "Disable" : "Enable"}
@@ -215,6 +248,21 @@ export function StaffClient() {
             >
               Delete
             </Button>
+            {resetOpen === u.id && (
+              <div className="flex w-full flex-wrap items-center gap-2 pt-2">
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="باسورد جديد (8 حروف على الأقل)"
+                  value={resetValues[u.id] || ""}
+                  onChange={(e) => setResetValues((v) => ({ ...v, [u.id]: e.target.value }))}
+                  className="max-w-xs"
+                />
+                <Button type="button" size="sm" onClick={() => resetPassword(u)}>
+                  حفظ
+                </Button>
+              </div>
+            )}
           </li>
         ))}
       </ul>

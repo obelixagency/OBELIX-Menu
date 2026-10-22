@@ -4,10 +4,19 @@ import {
   createSessionCookie,
   verifyCredentials,
 } from "@/lib/auth";
+import { checkLoginRate, clientIp, recordLoginFailure, resetLoginRate } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+  const gate = checkLoginRate(ip);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts — try again later" },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfterSec) } }
+    );
+  }
   let password = "";
   let username = "";
   try {
@@ -34,12 +43,14 @@ export async function POST(req: NextRequest) {
 
   const ok = await verifyCredentials(username, password);
   if (!ok) {
+    recordLoginFailure(ip);
     return NextResponse.json(
       { error: "Invalid username or password" },
       { status: 401 }
     );
   }
 
+  resetLoginRate(ip);
   const token = await createSessionCookie();
   const res = NextResponse.json({ ok: true, redirect: "/" });
   res.headers.set(
