@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { requireMenuEditor } from "@/lib/auth";
 import { applyProductDiscounts } from "@/lib/menu-data";
 import type { DiscountType } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   try {
     const body = await req.json();
     const ids = Array.isArray(body.productIds) ? body.productIds : [];

@@ -209,3 +209,16 @@ export async function loginAndCreateCookie(input: {
 }
 
 export { COOKIE };
+
+/**
+ * Menu / brand / media changes are owner-only. Cashier, kitchen and bar
+ * accounts can log in but must not edit products, prices or settings.
+ */
+export async function requireMenuEditor(): Promise<Response | null> {
+  const session = await readSession();
+  if (!session) return Response.json({ error: "غير مصرح" }, { status: 401 });
+  if ((session.role ?? "owner") !== "owner") {
+    return Response.json({ error: "الصلاحية دي لصاحب المنيو بس / Owner only" }, { status: 403 });
+  }
+  return null;
+}

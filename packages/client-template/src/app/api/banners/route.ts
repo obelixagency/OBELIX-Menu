@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { requireMenuEditor } from "@/lib/auth";
 import { createBanner, isPromoEnabled, listBanners, setPromoEnabled } from "@/lib/menu-data";
 
 export async function GET() {
@@ -15,9 +15,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   const body = await req.json();
   if (typeof body.promoEnabled === "boolean") {
     await setPromoEnabled(body.promoEnabled);
@@ -30,9 +29,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   try {
     const body = await req.json();
     if (!body.imageUrl) {

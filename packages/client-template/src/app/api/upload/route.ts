@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import { isAuthenticated } from "@/lib/auth";
+import { requireMenuEditor } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   const form = await req.formData();
   const file = form.get("file");
   if (!file || !(file instanceof File)) {

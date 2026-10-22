@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { requireMenuEditor } from "@/lib/auth";
 import { deleteProduct, updateProduct } from "@/lib/menu-data";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   const { id } = await ctx.params;
   try {
     const body = await req.json();
@@ -20,9 +19,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   const { id } = await ctx.params;
   await deleteProduct(id);
   return NextResponse.json({ ok: true });

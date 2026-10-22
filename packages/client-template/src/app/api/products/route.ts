@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { requireMenuEditor } from "@/lib/auth";
 import { createProduct, listProducts } from "@/lib/menu-data";
 
 export async function GET() {
@@ -8,9 +8,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   try {
     const body = await req.json();
     if (!body.name || body.price === undefined) {

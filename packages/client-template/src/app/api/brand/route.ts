@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, requireMenuEditor } from "@/lib/auth";
 import { readBrand, toPublicBrand, writeBrand } from "@/lib/brand";
 import { normalizePayments } from "@/lib/payments";
 
@@ -13,9 +13,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  }
+  const denied = await requireMenuEditor();
+  if (denied) return denied;
   try {
     const body = await req.json();
     const brand = await readBrand();

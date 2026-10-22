@@ -16,6 +16,7 @@ import { formatPrice } from "@/lib/utils";
 import type { Category, DiscountType, Product, ProductOptionGroup } from "@/lib/types";
 import { ProductOptionsEditor } from "@/components/dashboard/product-options-editor";
 import { isoToLocalInput, localInputToIso } from "@/lib/commerce";
+import { ImportMenuCard } from "@/components/dashboard/import-menu-card";
 
 export default function ProductsClient() {
   const router = useRouter();
@@ -210,6 +211,8 @@ export default function ProductsClient() {
           خصم الصنف يتجاوز خصم الفئة إن وُجد الاثنان.
         </p>
       </div>
+
+      <ImportMenuCard onChanged={load} />
 
       <div className="flex flex-wrap gap-2">
         {(

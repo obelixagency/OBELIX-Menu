@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Plus, Users, X } from "lucide-react";
+import { Menu, Plus, Users, X, ScanText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgencyLocale } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ export function AgencyHeader() {
 
   const clientsActive = pathname === "/";
   const newActive = Boolean(pathname?.startsWith("/clients/new"));
+  const readerActive = Boolean(pathname?.startsWith("/tools/menu-reader"));
 
   return (
     <>
@@ -85,6 +86,18 @@ export function AgencyHeader() {
           >
             <Plus className="h-4 w-4" />
             {t.header.newClient}
+          </Link>
+          <Link
+            href="/tools/menu-reader"
+            className={cn(
+              "flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium",
+              readerActive
+                ? "bg-[var(--obx-yellow)] text-black"
+                : "text-white/75 hover:bg-white/5"
+            )}
+          >
+            <ScanText className="h-4 w-4" />
+            {t.header.menuReader}
           </Link>
         </nav>
         <div className="space-y-3 border-t border-white/10 p-4">
@@ -155,6 +168,16 @@ export function AgencyHeader() {
               )}
             >
               {t.header.newClient}
+            </Link>
+            <Link
+              href="/tools/menu-reader"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium",
+                readerActive ? "bg-[var(--obx-yellow)] text-black" : "text-white"
+              )}
+            >
+              {t.header.menuReader}
             </Link>
             <button
               type="button"
