@@ -78,3 +78,9 @@ RedirectMatch 404 "(?i)/(package(-lock)?\.json|pnpm-lock\.yaml|pnpm-workspace\.y
 - Faster upload: put one `.tar.gz` and extract it on the server with the File Browser
   `PATCH /api/resources/<archive>?action=unarchive&destination=<dir>` (seconds instead of ~2000 single uploads).
 - Agency AI reader needs `GEMINI_API_KEY` in `public_html/apps/agency/.env` (+ restart).
+
+### 2026-10-23 — pilot demos (`claude/pilot-demo-menu@3fabdfb`)
+- Run by hand on the Mac: `deploy-client.sh packages/client-template` (/pilot code), `push-demo-data.sh eg` (/pilot items, 42 demo photos, banners, brand look), `deploy-pilot-sa.sh` (first deploy of `public_html/pilot-sa`, SAR + VAT 15% incl.).
+- Backups: `~/obelix-backups/pilot-<stamp>/` (code deploy) and `~/obelix-backups/pilot-demo-<stamp>/` (demo data) — exact names in `ls -t ~/obelix-backups`.
+- Smoke: /pilot, /pilot/uploads/demo-espresso.jpg, /pilot/dashboard/login → 200; /pilot-sa → 301 to `/pilot-sa/` (trailing slash), its photo + login → 200; /pilot-sa/data/menu.json → 404.
+- /pilot-sa dashboard password is in the server's `pilot-sa/.env` (`DASHBOARD_PASSWORD`).
