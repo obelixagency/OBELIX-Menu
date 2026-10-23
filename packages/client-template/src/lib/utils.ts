@@ -28,6 +28,13 @@ export function formatPrice(
   return meta.suffix ? `${amount} ${label}` : `${label}${amount}`;
 }
 
+export function currencyLabel(currency = "EGP", locale: "ar" | "en" = "ar"): string {
+  const code = (currency || "EGP").toUpperCase();
+  const meta = CURRENCY_LABELS[code];
+  if (!meta) return code;
+  return locale === "en" ? meta.en : meta.ar;
+}
+
 /** @deprecated use formatPrice */
 export function formatPriceEGP(price: number): string {
   return formatPrice(price, "EGP", "ar");

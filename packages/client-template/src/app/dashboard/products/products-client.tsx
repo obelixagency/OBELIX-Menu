@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatPrice } from "@/lib/utils";
+import { currencyLabel, formatPrice } from "@/lib/utils";
 import type { Category, DiscountType, Product, ProductOptionGroup } from "@/lib/types";
 import { ProductOptionsEditor } from "@/components/dashboard/product-options-editor";
 import { isoToLocalInput, localInputToIso } from "@/lib/commerce";
@@ -271,7 +271,7 @@ export default function ProductsClient() {
               </div>
             )}
             <div>
-              <Label htmlFor="price">السعر (ج.م)</Label>
+              <Label htmlFor="price">السعر ({currencyLabel(currency)})</Label>
               <Input
                 id="price"
                 type="number"
