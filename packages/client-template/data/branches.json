@@ -2,8 +2,8 @@
   "branches": [
     {
       "id": "main",
-      "name": "الفرع الرئيسي",
-      "nameEn": "Main",
+      "name": "فرع الزمالك",
+      "nameEn": "Zamalek",
       "slug": "main",
       "active": true,
       "sortOrder": 0

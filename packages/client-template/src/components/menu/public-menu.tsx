@@ -1,7 +1,7 @@
 "use client";
 import { mediaUrl } from "@/lib/base-path";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import {
@@ -20,7 +20,6 @@ import {
 } from "@/lib/types";
 import { inSchedule, prepLabel } from "@/lib/commerce";
 import { dirFor, pickLocalized, type Locale } from "@/lib/i18n";
-import { childrenOf } from "@/lib/menu-data-browser";
 import { RateFormModal } from "@/components/menu/rate-form-modal";
 import { PromoBannerCarousel } from "@/components/menu/promo-banners";
 import { PublicMenuFooter } from "@/components/menu/public-footer";
@@ -80,7 +79,8 @@ function PublicMenuInner({
   const currency = brand.currency || "EGP";
   const [locale, setLocale] = useState<Locale>(mode === "en" ? "en" : "ar");
   const [query, setQuery] = useState("");
-  const [pathIds, setPathIds] = useState<string[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [rateOpen, setRateOpen] = useState(false);
   const [picking, setPicking] = useState<Product | null>(null);
   const cart = useCart();
@@ -94,18 +94,6 @@ function PublicMenuInner({
     const s = stockFor(id);
     return s !== null && s <= 0;
   }
-
-  const currentParent = pathIds.length ? pathIds[pathIds.length - 1] : null;
-  const childCats = useMemo(
-    () => childrenOf(categories, currentParent),
-    [categories, currentParent]
-  );
-
-  const breadcrumb = useMemo(() => {
-    return pathIds
-      .map((id) => categories.find((c) => c.id === id))
-      .filter(Boolean) as Category[];
-  }, [pathIds, categories]);
 
   const catMap = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
@@ -158,337 +146,445 @@ function PublicMenuInner({
     commitAdd(p);
   }
 
-  const productsHere = useMemo(() => {
-    const live = products.filter(
-      (p) => p.available && inSchedule(p.offerFrom, p.offerUntil)
-    );
-    if (!currentParent) return live;
-    return live.filter((p) => p.categoryId === currentParent);
-  }, [products, currentParent]);
+  const live = useMemo(
+    () =>
+      products.filter((p) => p.available && inSchedule(p.offerFrom, p.offerUntil)),
+    [products]
+  );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = productsHere;
-    if (q) {
-      list = products.filter((p) => {
-        if (!p.available) return false;
-        return (
-          p.name.toLowerCase().includes(q) ||
-          (p.nameEn || "").toLowerCase().includes(q) ||
-          (p.description || "").toLowerCase().includes(q) ||
-          (p.descriptionEn || "").toLowerCase().includes(q)
-        );
-      });
+  /**
+   * One section per category that directly holds items, in tree order
+   * (parent sortOrder, then child sortOrder). Items whose category is missing
+   * or hidden fall into a trailing "More" section so nothing disappears.
+   */
+  const sections = useMemo(() => {
+    const active = categories.filter((c) => c.active);
+    const byParent = new Map<string | null, Category[]>();
+    for (const c of active) {
+      const k = c.parentId ?? null;
+      byParent.set(k, [...(byParent.get(k) || []), c]);
     }
-    return list;
-  }, [productsHere, products, query]);
+    const ordered: Category[] = [];
+    const walk = (parent: string | null) => {
+      for (const c of (byParent.get(parent) || []).sort(
+        (a, b) => a.sortOrder - b.sortOrder
+      )) {
+        ordered.push(c);
+        walk(c.id);
+      }
+    };
+    walk(null);
+    const out: { id: string; cat: Category | null; items: Product[] }[] = [];
+    const placed = new Set<string>();
+    for (const c of ordered) {
+      const items = live
+        .filter((p) => p.categoryId === c.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      if (items.length) {
+        out.push({ id: c.id, cat: c, items });
+        items.forEach((p) => placed.add(p.id));
+      }
+    }
+    const rest = live.filter((p) => !placed.has(p.id));
+    if (rest.length) out.push({ id: "_more", cat: null, items: rest });
+    return out;
+  }, [categories, live]);
 
-  const featured = useMemo(() => {
-    if (query || currentParent) return [];
-    return products.filter((p) => p.available && p.featured && inSchedule(p.offerFrom, p.offerUntil));
-  }, [products, query, currentParent]);
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return live.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.nameEn || "").toLowerCase().includes(q) ||
+        (p.description || "").toLowerCase().includes(q) ||
+        (p.descriptionEn || "").toLowerCase().includes(q)
+    );
+  }, [live, query]);
+
+  const featured = useMemo(
+    () => (results ? [] : live.filter((p) => p.featured)),
+    [live, results]
+  );
+
+  // Scroll-spy: highlight the tab of the section under the sticky bar.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (results) return;
+    const els = sections
+      .map((s) => document.getElementById(`sec-${s.id}`))
+      .filter(Boolean) as HTMLElement[];
+    if (!els.length) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const top = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setActiveSection(top.target.id.slice(4));
+      },
+      { rootMargin: "-120px 0px -60% 0px" }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [sections, results]);
+
+  useEffect(() => {
+    if (!activeSection || !tabsRef.current) return;
+    const tab = tabsRef.current.querySelector<HTMLElement>(
+      `[data-sec="${activeSection}"]`
+    );
+    if (!tab) return;
+    // Scroll only the tab strip; scrollIntoView would also move the page and
+    // cancel the smooth jump to the section.
+    const strip = tabsRef.current;
+    const left =
+      tab.offsetLeft - strip.clientWidth / 2 + tab.clientWidth / 2;
+    strip.scrollTo({ left, behavior: "smooth" });
+  }, [activeSection]);
+
+  function jumpTo(id: string) {
+    setActiveSection(id);
+    document
+      .getElementById(`sec-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const shownSection = activeSection ?? sections[0]?.id ?? null;
 
   const visibleReviews = reviews.filter((r) => r.visible).slice(0, 6);
-  const bg = mediaUrl(brand.menuBackgroundUrl);
+  const cover = mediaUrl(brand.menuBackgroundUrl);
+  const note = pickLocalized(locale, seasonalNote, seasonalNoteEn);
+  const taxLine =
+    brand.taxPercent && brand.taxPercent > 0
+      ? brand.taxInclusive !== false
+        ? locale === "en"
+          ? `Prices include ${brand.taxPercent}% VAT`
+          : `الأسعار شاملة ضريبة ${brand.taxPercent}%`
+        : locale === "en"
+          ? `+${brand.taxPercent}% VAT at checkout`
+          : `+${brand.taxPercent}% ضريبة عند الحساب`
+      : "";
+  const tagline =
+    pickLocalized(locale, brand.slogan, brand.sloganEn) ||
+    (orderingOn
+      ? locale === "en"
+        ? "Order from your phone"
+        : "اطلب من الموبايل"
+      : locale === "en"
+        ? "Digital menu"
+        : "منيو رقمي");
+
+  const rowProps = (p: Product) => ({
+    product: p,
+    category: catMap.get(p.categoryId),
+    locale,
+    currency,
+    orderingOn,
+    outOfStock: isOut(p.id),
+    onAdd: orderingOn && !isOut(p.id) ? () => addProduct(p) : undefined,
+  });
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden bg-[var(--brand-surface)]"
+      className="relative min-h-screen overflow-x-clip bg-[var(--brand-surface)] pb-24"
       dir={dirFor(locale)}
       lang={locale}
     >
-      {bg ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={bg}
-            alt=""
-            className="pointer-events-none fixed inset-0 -z-20 h-full w-full object-cover object-center"
-          />
-          <div
-            className="pointer-events-none fixed inset-0 -z-10"
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.88) 45%, rgba(255,255,255,0.94) 100%)",
-            }}
-          />
-        </>
-      ) : null}
+      <header className="relative">
+        {cover ? (
+          <div className="relative h-44 w-full overflow-hidden sm:h-64">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cover}
+              alt=""
+              className="h-full w-full object-cover object-center"
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0) 70%, rgba(0,0,0,.18) 100%)",
+              }}
+            />
+          </div>
+        ) : null}
 
-      <PromoBannerCarousel
-        banners={banners.filter((b) => inSchedule(b.startsAt, b.endsAt))}
-      />
+        <div
+          className={`absolute inset-x-0 top-0 z-10 mx-auto flex max-w-3xl justify-end gap-1.5 px-4 pt-3 ${
+            cover ? "" : "relative"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setRateOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[var(--brand-accent)] shadow-sm backdrop-blur touch-manipulation"
+            aria-label={locale === "en" ? "Rate your visit" : "قيّم زيارتك"}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.5l2.74 6.42 6.96.62-5.26 4.66 1.56 6.8L12 17.77l-5.99 3.23 1.56-6.8L2.3 9.54l6.96-.62L12 2.5z" />
+            </svg>
+          </button>
+          {mode === "both" && (
+            <button
+              type="button"
+              onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
+              className="h-10 rounded-full bg-white/90 px-4 text-sm font-bold text-[var(--brand-ink)] shadow-sm backdrop-blur touch-manipulation"
+              lang={locale === "ar" ? "en" : "ar"}
+            >
+              {locale === "ar" ? "English" : "عربي"}
+            </button>
+          )}
+        </div>
 
-      <header className="sticky top-0 z-20 border-b border-[var(--brand-line)] bg-[color-mix(in_srgb,var(--brand-surface)_88%,white)]/95 backdrop-blur">
-        <div className="relative mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+        <div
+          className={`relative mx-auto flex max-w-3xl items-start gap-3 px-4 ${
+            cover ? "" : "pt-4"
+          }`}
+        >
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={mediaUrl(brand.logoUrl) ?? undefined}
               alt={brand.displayName}
-              className="h-11 w-11 rounded-full bg-white object-contain p-0.5 shadow-sm ring-1 ring-[var(--brand-line)]"
+              className={`h-[72px] w-[72px] shrink-0 rounded-2xl bg-white object-contain p-1 shadow-md ring-4 ring-[var(--brand-surface)] ${cover ? "-mt-9" : ""}`}
             />
           ) : (
             <div
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-lg font-extrabold shadow-sm"
+              className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-white text-2xl font-extrabold shadow-md ring-4 ring-[var(--brand-surface)] ${cover ? "-mt-9" : ""}`}
               style={{ color: brand.colors.primary }}
             >
               {brand.displayName.slice(0, 1)}
             </div>
           )}
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-extrabold tracking-tight sm:text-lg">
+          <div className={`min-w-0 flex-1 ${cover ? "pt-2" : "pt-1"}`}>
+            <h1 className="truncate text-xl font-extrabold leading-tight tracking-tight text-[var(--brand-ink)]">
               {brand.displayName}
             </h1>
-            {branchLabel ? (
-              <p className="truncate text-xs text-[var(--brand-muted)]">
-                {branchLabel}
-              </p>
-            ) : (
-              <p className="truncate text-xs text-[var(--brand-muted)]">
-                {pickLocalized(locale, brand.slogan, brand.sloganEn) ||
-                  (orderingOn
-                    ? locale === "en"
-                      ? "Order from your phone"
-                      : "اطلب من الموبايل"
-                    : locale === "en"
-                      ? "Digital menu"
-                      : "منيو رقمي")}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setRateOpen(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--brand-line)] bg-white text-[var(--brand-accent)] touch-manipulation"
-              aria-label={locale === "en" ? "Open Rate Form" : "فتح نموذج التقييم"}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 2.5l2.74 6.42 6.96.62-5.26 4.66 1.56 6.8L12 17.77l-5.99 3.23 1.56-6.8L2.3 9.54l6.96-.62L12 2.5z" />
-              </svg>
-            </button>
-            {mode === "both" && (
-              <div className="flex gap-1 rounded-full border border-[var(--brand-line)] bg-white p-1 text-xs">
-                <button
-                  type="button"
-                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "ar" ? "bg-[var(--brand-primary)] text-white" : "text-[var(--brand-muted)]"}`}
-                  onClick={() => setLocale("ar")}
-                >
-                  عربي
-                </button>
-                <button
-                  type="button"
-                  className={`min-h-9 rounded-full px-3 touch-manipulation ${locale === "en" ? "bg-[var(--brand-primary)] text-white" : "text-[var(--brand-muted)]"}`}
-                  onClick={() => setLocale("en")}
-                >
-                  EN
-                </button>
-              </div>
-            )}
+            <p className="truncate text-sm text-[var(--brand-muted)]">
+              {branchLabel ? `${tagline} · ${branchLabel}` : tagline}
+            </p>
           </div>
         </div>
-        {(pickLocalized(locale, seasonalNote, seasonalNoteEn) ||
-          (brand.taxPercent && brand.taxPercent > 0)) && (
-          <p className="mx-auto max-w-3xl px-4 pb-2 text-xs text-[var(--brand-muted)]">
-            {pickLocalized(locale, seasonalNote, seasonalNoteEn)}
-            {brand.taxPercent && brand.taxPercent > 0
-              ? `${pickLocalized(locale, seasonalNote, seasonalNoteEn) ? " · " : ""}${
-                  brand.taxInclusive !== false
-                    ? locale === "en"
-                      ? `Prices include ${brand.taxPercent}% tax`
-                      : `الأسعار شاملة ضريبة ${brand.taxPercent}%`
-                    : locale === "en"
-                      ? `+${brand.taxPercent}% tax at checkout`
-                      : `+${brand.taxPercent}% ضريبة عند الحساب`
-                }`
-              : ""}
+        {(note || taxLine) && (
+          <p className="mx-auto mt-2 max-w-3xl px-4 text-xs text-[var(--brand-muted)]">
+            {[note, taxLine].filter(Boolean).join(" · ")}
           </p>
         )}
       </header>
 
-      <div className="relative mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-5">
-        <div className="sticky top-0 z-10 -mx-3 border-b border-black/5 bg-white/90 px-3 py-3 backdrop-blur sm:-mx-4 sm:px-4">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={locale === "en" ? "Search…" : "ابحث عن صنف…"}
-            className="mb-3 h-11 w-full rounded-full border border-[var(--brand-line)] bg-white px-4 text-base outline-none focus:ring-2 focus:ring-[var(--brand-primary)] sm:text-sm"
-          />
-
-          {!query && (
+      {/* Sticky category tabs + search */}
+      <div
+        className="sticky top-0 z-30 mt-4 border-b border-[var(--brand-line)] backdrop-blur"
+        style={{ background: "color-mix(in srgb, var(--brand-surface) 94%, transparent)" }}
+      >
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2">
+          {searchOpen ? (
             <>
-              <div className="mb-2 flex flex-wrap items-center gap-1 text-xs text-black/50">
-                <button
-                  type="button"
-                  className="min-h-9 rounded px-2 touch-manipulation hover:text-[var(--brand-primary)]"
-                  onClick={() => setPathIds([])}
-                >
-                  {locale === "en" ? "Home" : "الرئيسية"}
-                </button>
-                {breadcrumb.map((c, i) => (
-                  <span key={c.id} className="flex items-center gap-1">
-                    <span>/</span>
+              <input
+                type="search"
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={locale === "en" ? "Search the menu" : "ابحث في المنيو"}
+                className="h-10 min-w-0 flex-1 rounded-full border border-[var(--brand-line)] bg-white px-4 text-base outline-none focus:ring-2 focus:ring-[var(--brand-primary)] sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSearchOpen(false);
+                }}
+                className="h-10 shrink-0 rounded-full px-3 text-sm font-semibold text-[var(--brand-primary)] touch-manipulation"
+              >
+                {locale === "en" ? "Close" : "إغلاق"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-line)] bg-white text-[var(--brand-ink)] touch-manipulation"
+                aria-label={locale === "en" ? "Search the menu" : "ابحث في المنيو"}
+              >
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+              </button>
+              <div
+                ref={tabsRef}
+                className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+              >
+                {sections.map((s) => {
+                  const on = shownSection === s.id;
+                  return (
                     <button
+                      key={s.id}
                       type="button"
-                      className="min-h-9 rounded px-2 touch-manipulation hover:text-[var(--brand-primary)]"
-                      onClick={() => setPathIds(pathIds.slice(0, i + 1))}
+                      data-sec={s.id}
+                      onClick={() => jumpTo(s.id)}
+                      aria-current={on}
+                      className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors touch-manipulation ${
+                        on
+                          ? "bg-[var(--brand-primary)] text-white"
+                          : "text-[var(--brand-ink)] hover:bg-black/5"
+                      }`}
                     >
-                      {pickLocalized(locale, c.name, c.nameEn)}
+                      {s.cat
+                        ? pickLocalized(locale, s.cat.name, s.cat.nameEn)
+                        : locale === "en"
+                          ? "More"
+                          : "أصناف أخرى"}
                     </button>
-                  </span>
-                ))}
+                  );
+                })}
               </div>
-              {childCats.length > 0 && (
-                <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-                  {childCats.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setPathIds([...pathIds, c.id])}
-                      className="min-h-10 shrink-0 touch-manipulation rounded-full px-3.5 py-2 text-xs font-medium text-white"
-                      style={{ background: "var(--brand-primary)" }}
-                    >
-                      {pickLocalized(locale, c.name, c.nameEn)}
-                    </button>
-                  ))}
-                </div>
-              )}
             </>
           )}
         </div>
+      </div>
 
-        {featured.length > 0 && (
+      <main className="mx-auto max-w-3xl px-4">
+        {results ? (
           <section className="mt-5">
-            <h2 className="mb-3 text-sm font-bold text-[var(--brand-primary)]">
-              {locale === "en" ? "Featured" : "أصناف مميزة"}
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {featured.map((p, i) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  category={catMap.get(p.categoryId)}
-                  locale={locale}
-                  currency={currency}
-                  index={i}
-                  featured
-                  orderingOn={orderingOn}
-                  outOfStock={isOut(p.id)}
-                  onAdd={
-                    orderingOn && !isOut(p.id)
-                      ? () => addProduct(p)
-                      : undefined
-                  }
-                />
-              ))}
+            <p className="mb-2 text-sm text-[var(--brand-muted)]">
+              {results.length
+                ? locale === "en"
+                  ? `${results.length} results`
+                  : `${results.length} نتيجة`
+                : locale === "en"
+                  ? "Nothing matches that. Try another word."
+                  : "مفيش صنف بالاسم ده. جرّب كلمة تانية."}
+            </p>
+            {results.length > 0 && (
+              <div className="divide-y divide-[var(--brand-line)] rounded-2xl bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
+                {results.map((p) => (
+                  <ProductRow key={p.id} {...rowProps(p)} />
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          <>
+            {banners.length > 0 && (
+              <div className="mt-5">
+                <PromoBannerCarousel banners={banners} locale={locale} />
+              </div>
+            )}
+
+            {featured.length > 0 && (
+              <section className="mt-6">
+                <h2 className="mb-3 text-lg font-extrabold text-[var(--brand-ink)]">
+                  {locale === "en" ? "Most ordered" : "الأكثر طلباً"}
+                </h2>
+                <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
+                  {featured.map((p) => (
+                    <FeaturedCard key={p.id} {...rowProps(p)} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {sections.map((s) => (
+              <section
+                key={s.id}
+                id={`sec-${s.id}`}
+                className="mt-8 scroll-mt-20"
+              >
+                <h2 className="mb-2 flex items-baseline gap-2 text-lg font-extrabold text-[var(--brand-ink)]">
+                  {s.cat
+                    ? pickLocalized(locale, s.cat.name, s.cat.nameEn)
+                    : locale === "en"
+                      ? "More"
+                      : "أصناف أخرى"}
+                  {s.cat?.discountType && (s.cat.discountValue ?? 0) > 0 ? (
+                    <span className="rounded-full bg-[var(--brand-accent)] px-2 py-0.5 text-[11px] font-bold text-[#1a1410]">
+                      {s.cat.discountType === "percent"
+                        ? locale === "en"
+                          ? `${s.cat.discountValue}% off`
+                          : `خصم ${s.cat.discountValue}%`
+                        : locale === "en"
+                          ? "Offer"
+                          : "عرض"}
+                    </span>
+                  ) : null}
+                </h2>
+                <div className="divide-y divide-[var(--brand-line)] rounded-2xl bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
+                  {s.items.map((p) => (
+                    <ProductRow key={p.id} {...rowProps(p)} />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {live.length === 0 && (
+              <p className="mt-10 text-center text-sm text-[var(--brand-muted)]">
+                {locale === "en"
+                  ? "The menu is being updated. Please check back shortly."
+                  : "المنيو بيتحدّث دلوقتي. ارجع بعد شوية."}
+              </p>
+            )}
+          </>
+        )}
+
+        {visibleReviews.length > 0 && (
+          <section className="mt-10">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-extrabold text-[var(--brand-ink)]">
+                {locale === "en" ? "What guests say" : "آراء الضيوف"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setRateOpen(true)}
+                className="min-h-10 text-sm font-semibold text-[var(--brand-primary)] underline-offset-2 touch-manipulation hover:underline"
+              >
+                {locale === "en" ? "Rate your visit" : "قيّم زيارتك"}
+              </button>
             </div>
+            <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
+              {visibleReviews.map((r) => (
+                <li
+                  key={r.id}
+                  className="w-[78%] max-w-xs shrink-0 snap-start rounded-2xl bg-white p-4 text-sm shadow-[0_1px_2px_rgba(0,0,0,.05)]"
+                >
+                  <span
+                    className="text-[var(--brand-accent)]"
+                    aria-label={`${Math.round(reviewOverall(r))} / 5`}
+                  >
+                    {"★".repeat(Math.round(reviewOverall(r)))}
+                  </span>
+                  {(r.anythingElse || r.comment) && (
+                    <p className="mt-1 line-clamp-3 text-[var(--brand-ink)]">
+                      {r.anythingElse || r.comment}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-[var(--brand-muted)]">
+                    {r.name || (locale === "en" ? "Guest" : "ضيف")}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
-        <section className="mt-8">
-          {currentParent && !query && (
-            <h2 className="mb-3 border-b border-black/10 pb-2 text-lg font-bold">
-              {pickLocalized(
-                locale,
-                catMap.get(currentParent)?.name,
-                catMap.get(currentParent)?.nameEn
-              )}
-            </h2>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {filtered
-              .filter((p) => (currentParent || query ? true : !p.featured))
-              .map((p, i) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  category={catMap.get(p.categoryId)}
-                  locale={locale}
-                  currency={currency}
-                  index={i}
-                  orderingOn={orderingOn}
-                  outOfStock={isOut(p.id)}
-                  onAdd={
-                    orderingOn && !isOut(p.id)
-                      ? () => addProduct(p)
-                      : undefined
-                  }
-                />
-              ))}
-          </div>
-          {filtered.length === 0 && childCats.length === 0 && (
-            <p className="mt-8 text-center text-sm text-black/45">
-              {locale === "en" ? "No items" : "لا توجد أصناف"}
-            </p>
-          )}
-        </section>
-
-        <section className="mt-10">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-[var(--brand-ink)]">
-              {locale === "en" ? "Reviews" : "آراء العملاء"}
-            </h2>
-            <button
-              type="button"
-              onClick={() => setRateOpen(true)}
-              className="min-h-10 text-sm font-medium text-[var(--brand-primary)] underline-offset-2 touch-manipulation hover:underline"
-            >
-              {locale === "en" ? "Leave a review" : "اترك تقييماً"}
-            </button>
-          </div>
-          <ul className="space-y-2">
-            {visibleReviews.map((r) => (
-              <li
-                key={r.id}
-                className="rounded-xl border border-black/8 bg-white/95 p-3 text-sm shadow-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[var(--brand-accent)]">
-                    {"★".repeat(Math.round(reviewOverall(r)))}
-                  </span>
-                  <span className="text-xs text-black/45">
-                    {r.name || (locale === "en" ? "Guest" : "زائر")}
-                  </span>
-                </div>
-                {(r.anythingElse || r.comment) && (
-                  <p className="mt-1 text-[var(--brand-ink)]">
-                    {r.anythingElse || r.comment}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {contacts.filter((c) => c.active).length > 0 && (
-          <section className="mt-10 rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-bold text-[var(--brand-primary)]">
-              {locale === "en" ? "Contact" : "تواصل معنا"}
+          <section className="mt-10">
+            <h2 className="mb-3 text-lg font-extrabold text-[var(--brand-ink)]">
+              {locale === "en" ? "Get in touch" : "تواصل معانا"}
             </h2>
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-wrap gap-2">
               {contacts
                 .filter((c) => c.active)
                 .map((c) => (
                   <li key={c.id}>
                     <a
                       href={contactHref(c)}
-                      target="_blank"
+                      target={c.type === "phone" ? undefined : "_blank"}
                       rel="noreferrer"
-                      className="flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-[var(--brand-surface)]"
+                      className="flex min-h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-[var(--brand-ink)] shadow-[0_1px_2px_rgba(0,0,0,.05)] hover:bg-white/80"
                     >
-                      <span className="font-medium">
-                        {c.label || contactLabel(c.type, locale)}
-                      </span>
-                      <span className="truncate text-black/45" dir="ltr">
-                        {c.value}
-                      </span>
+                      {c.label || contactLabel(c.type, locale)}
                     </a>
                   </li>
                 ))}
@@ -496,16 +592,8 @@ function PublicMenuInner({
           </section>
         )}
 
-        {!orderingOn && (
-          <div className="mt-8 rounded-xl border border-dashed border-black/15 bg-white/70 p-4 text-center text-xs text-black/45">
-            {locale === "en"
-              ? "Ordering is not enabled for this menu."
-              : "الطلب من المنيو غير مفعّل لهذا العميل."}
-          </div>
-        )}
-
         <PublicMenuFooter displayName={brand.displayName} locale={locale} />
-      </div>
+      </main>
 
       {orderingOn && (
         <>
@@ -522,7 +610,7 @@ function PublicMenuInner({
                   : `${cart.count} أصناف · ${formatPrice(cart.subtotal, currency, locale)}`}
               </span>
               <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
-                {locale === "en" ? "Checkout" : "إتمام الطلب"}
+                {locale === "en" ? "View order" : "عرض الطلب"}
               </span>
             </button>
           )}
@@ -566,119 +654,175 @@ function PublicMenuInner({
   );
 }
 
-function ProductCard({
-  product,
-  category,
-  locale,
-  currency,
-  index,
-  featured,
-  orderingOn,
-  outOfStock,
-  onAdd,
-}: {
+type RowProps = {
   product: Product;
   category?: Category;
   locale: Locale;
   currency: string;
-  index: number;
-  featured?: boolean;
   orderingOn?: boolean;
   outOfStock?: boolean;
   onAdd?: () => void;
-}) {
+};
+
+function discountBadge(
+  d: ReturnType<typeof resolveDiscount>,
+  locale: Locale
+): string | null {
+  if (!d) return null;
+  if (d.type === "percent") return locale === "en" ? `-${d.value}%` : `خصم ${d.value}%`;
+  return locale === "en" ? "Offer" : "عرض";
+}
+
+function Thumb({ product, title, className }: { product: Product; title: string; className: string }) {
+  return product.image ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={mediaUrl(product.image) ?? undefined}
+      alt=""
+      loading="lazy"
+      className={`${className} object-cover`}
+    />
+  ) : (
+    <div
+      className={`${className} flex items-center justify-center text-2xl font-extrabold text-[var(--brand-primary)]/35`}
+      style={{ background: "linear-gradient(145deg, var(--brand-surface), #fff)" }}
+    >
+      {title.slice(0, 1)}
+    </div>
+  );
+}
+
+function AddButton({ locale, onAdd, className }: { locale: Locale; onAdd: () => void; className: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        onAdd();
+      }}
+      className={`${className} flex h-9 w-9 items-center justify-center rounded-full bg-white text-[var(--brand-primary)] shadow-md ring-1 ring-black/5 touch-manipulation active:scale-95`}
+      aria-label={locale === "en" ? "Add to order" : "أضف للطلب"}
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </button>
+  );
+}
+
+/** "From 85" only when a choice can actually raise the price. */
+function optionsChangePrice(p: Product): boolean {
+  return (p.optionGroups || []).some((g) =>
+    g.values.some((v) =>
+      g.priceMode === "replace" ? v.price > p.price : v.price > 0
+    )
+  );
+}
+
+function ProductRow({
+  product,
+  category,
+  locale,
+  currency,
+  outOfStock,
+  onAdd,
+}: RowProps) {
   const discount = resolveDiscount(product, category);
   const pricing = priceAfterDiscount(product.price, discount);
   const title = pickLocalized(locale, product.name, product.nameEn);
   const desc = pickLocalized(locale, product.description, product.descriptionEn);
+  const badge = pricing.hasDiscount ? discountBadge(discount, locale) : null;
+  const href = `/item/${product.id}`;
 
   return (
-    <div
-      className={`flex min-w-0 gap-3 overflow-hidden rounded-2xl border border-[var(--brand-line)] bg-white p-3 shadow-[0_1px_2px_rgba(26,20,16,.06),0_8px_24px_rgba(26,20,16,.04)] transition ${
-        outOfStock ? "opacity-60" : ""
-      }`}
-      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-    >
-      <Link
-        href={`/item/${product.id}`}
-        className="flex min-w-0 flex-1 gap-3 active:scale-[0.99]"
-      >
-        <div
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg sm:h-20 sm:w-20"
-          style={{
-            background: featured
-              ? "linear-gradient(145deg, var(--brand-accent), var(--brand-primary))"
-              : "linear-gradient(145deg, var(--brand-surface), #fff)",
-          }}
-        >
-          {product.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={mediaUrl(product.image) ?? undefined} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-xl font-bold text-[var(--brand-primary)]/40">
-              {title.slice(0, 1)}
+    <div className={`flex gap-3 py-3.5 ${outOfStock ? "opacity-55" : ""}`}>
+      <Link href={href} className="min-w-0 flex-1 py-0.5">
+        <h3 className="font-bold leading-snug text-[var(--brand-ink)]">{title}</h3>
+        {desc && (
+          <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-[var(--brand-muted)]">
+            {desc}
+          </p>
+        )}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-extrabold text-[var(--brand-ink)]">
+            {optionsChangePrice(product)
+              ? locale === "en"
+                ? `From ${formatPrice(pricing.final, currency, locale)}`
+                : `من ${formatPrice(pricing.final, currency, locale)}`
+              : formatPrice(pricing.final, currency, locale)}
+          </span>
+          {pricing.hasDiscount && (
+            <span className="text-xs text-[var(--brand-muted)] line-through">
+              {formatPrice(pricing.original, currency, locale)}
+            </span>
+          )}
+          {badge && (
+            <span className="rounded-full bg-[var(--brand-accent)] px-2 py-0.5 text-[11px] font-bold text-[#1a1410]">
+              {badge}
+            </span>
+          )}
+          {outOfStock && (
+            <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-bold text-black/60">
+              {locale === "en" ? "Sold out" : "خلص"}
             </span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="break-words font-semibold leading-snug">{title}</h3>
-            {featured && !outOfStock && (
-              <span
-                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
-                style={{ background: "var(--brand-accent)", color: "#1a1410" }}
-              >
-                {locale === "en" ? "Featured" : "مميز"}
-              </span>
-            )}
-            {outOfStock && (
-              <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-bold text-black/55">
-                {locale === "en" ? "Sold out" : "نفد"}
-              </span>
-            )}
-          </div>
-          {desc && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-black/50">{desc}</p>
-          )}
-          {(product.optionGroups || []).length > 0 && (
-            <p className="mt-1 text-[10px] font-semibold text-black/40">
-              {locale === "en" ? "Options" : "خيارات"}
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap items-baseline gap-2">
-            <p className="text-sm font-bold text-[var(--brand-primary)]">
-              {formatPrice(pricing.final, currency, locale)}
-            </p>
-            {pricing.hasDiscount && (
-              <p className="text-xs text-black/40 line-through">
-                {formatPrice(pricing.original, currency, locale)}
-              </p>
-            )}
-          </div>
-        </div>
       </Link>
-      {orderingOn && onAdd && !outOfStock && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            onAdd();
-          }}
-          className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-lg font-bold text-white touch-manipulation"
-          style={{ background: "var(--brand-primary)" }}
-          aria-label={locale === "en" ? "Add to cart" : "أضف للسلة"}
-        >
-          +
-        </button>
-      )}
-      {orderingOn && outOfStock && (
-        <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full bg-black/10 text-[10px] font-bold text-black/40"
-          aria-hidden
-        >
-          —
-        </span>
-      )}
+      <div className="relative shrink-0 self-start">
+        <Link href={href} tabIndex={-1} aria-hidden="true">
+          <Thumb product={product} title={title} className="h-[104px] w-[104px] rounded-xl" />
+        </Link>
+        {onAdd && !outOfStock && (
+          <AddButton locale={locale} onAdd={onAdd} className="absolute -bottom-2 start-1/2 -translate-x-1/2 rtl:translate-x-1/2" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FeaturedCard({
+  product,
+  category,
+  locale,
+  currency,
+  outOfStock,
+  onAdd,
+}: RowProps) {
+  const discount = resolveDiscount(product, category);
+  const pricing = priceAfterDiscount(product.price, discount);
+  const title = pickLocalized(locale, product.name, product.nameEn);
+  const badge = pricing.hasDiscount ? discountBadge(discount, locale) : null;
+
+  return (
+    <div
+      className={`relative w-[44%] min-w-[150px] max-w-[200px] shrink-0 snap-start ${outOfStock ? "opacity-55" : ""}`}
+    >
+      <div className="relative">
+        <Link href={`/item/${product.id}`} tabIndex={-1} aria-hidden="true" className="block">
+          <Thumb product={product} title={title} className="aspect-square w-full rounded-2xl" />
+        </Link>
+        {badge && (
+          <span className="pointer-events-none absolute top-2 start-2 rounded-full bg-[var(--brand-accent)] px-2 py-0.5 text-[11px] font-bold text-[#1a1410]">
+            {badge}
+          </span>
+        )}
+        {onAdd && !outOfStock && (
+          <AddButton locale={locale} onAdd={onAdd} className="absolute bottom-2 end-2" />
+        )}
+      </div>
+      <Link href={`/item/${product.id}`} className="block">
+        <h3 className="mt-2 line-clamp-1 text-sm font-bold text-[var(--brand-ink)]">{title}</h3>
+        <p className="text-sm">
+          <span className="font-extrabold text-[var(--brand-ink)]">
+            {formatPrice(pricing.final, currency, locale)}
+          </span>
+          {pricing.hasDiscount && (
+            <span className="ms-1.5 text-xs text-[var(--brand-muted)] line-through">
+              {formatPrice(pricing.original, currency, locale)}
+            </span>
+          )}
+        </p>
+      </Link>
     </div>
   );
 }
@@ -701,12 +845,12 @@ function contactHref(c: Contact): string {
 function contactLabel(type: Contact["type"], locale: Locale): string {
   const map: Record<Contact["type"], [string, string]> = {
     whatsapp: ["واتساب", "WhatsApp"],
-    phone: ["تليفون", "Phone"],
+    phone: ["اتصل بينا", "Call us"],
     instagram: ["إنستجرام", "Instagram"],
     facebook: ["فيسبوك", "Facebook"],
     tiktok: ["تيك توك", "TikTok"],
     email: ["إيميل", "Email"],
-    maps: ["الموقع", "Maps"],
+    maps: ["الموقع على الخريطة", "Directions"],
   };
   return locale === "en" ? map[type][1] : map[type][0];
 }

@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import type {
+  Banner,
   Category,
   Contact,
   MenuData,
@@ -664,20 +665,35 @@ export async function createBanner(input: {
   return banner;
 }
 
+const BANNER_TEXT_FIELDS = [
+  "imageUrlMobile",
+  "title",
+  "titleEn",
+  "subtitle",
+  "subtitleEn",
+  "productId",
+] as const;
+
 export async function updateBanner(
   id: string,
-  patch: Partial<{
-    imageUrl: string;
-    sortOrder: number;
-    active: boolean;
-    startsAt: string | null;
-    endsAt: string | null;
-  }>
+  patch: Partial<Omit<Banner, "id">>
 ) {
   const menu = await ensureMenu();
   const idx = menu.banners.findIndex((b) => b.id === id);
   if (idx === -1) throw new Error("البانر غير موجود");
-  menu.banners[idx] = { ...menu.banners[idx], ...patch, id };
+  const clean: Partial<Banner> = {};
+  if (typeof patch.imageUrl === "string" && patch.imageUrl) clean.imageUrl = patch.imageUrl;
+  if (typeof patch.sortOrder === "number") clean.sortOrder = patch.sortOrder;
+  if (typeof patch.active === "boolean") clean.active = patch.active;
+  if ("startsAt" in patch) clean.startsAt = patch.startsAt || null;
+  if ("endsAt" in patch) clean.endsAt = patch.endsAt || null;
+  for (const k of BANNER_TEXT_FIELDS) {
+    if (k in patch) {
+      const v = patch[k];
+      clean[k] = typeof v === "string" && v.trim() ? v.trim().slice(0, 200) : null;
+    }
+  }
+  menu.banners[idx] = { ...menu.banners[idx], ...clean, id };
   await saveMenu(menu);
   return menu.banners[idx];
 }

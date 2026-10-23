@@ -1,7 +1,7 @@
 {
-  "displayName": "Demo Cafe POS",
+  "displayName": "قهوة البيت",
   "slug": "demo-cafe-pos",
-  "logoUrl": "/uploads/logo-qahwa.svg",
+  "logoUrl": "/uploads/demo-logo-eg.svg",
   "colors": {
     "primary": "#5C3A1E",
     "accent": "#D4A017",
@@ -13,7 +13,7 @@
   "dashboardPassword": "obelix123",
   "languages": "both",
   "notificationEmail": null,
-  "menuBackgroundUrl": "/uploads/menu-bg-qahwa.jpg",
+  "menuBackgroundUrl": "/uploads/demo-cover-cafe.jpg",
   "extensions": {
     "ordering": {
       "orderFromMenu": true,
@@ -40,5 +40,9 @@
       "provider": "none",
       "note": "Online payment ready to wire per client gateway — not active yet."
     }
-  }
+  },
+  "slogan": "قهوة وفطار وأكل بيتي · القاهرة",
+  "sloganEn": "Coffee, breakfast & comfort food · Cairo",
+  "taxPercent": 0,
+  "taxInclusive": true
 }

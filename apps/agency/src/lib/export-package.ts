@@ -197,7 +197,8 @@ export async function exportClientPackage(client: ClientRecord): Promise<{
     },
   };
 
-  // Never ship the template's demo runtime data into a real client.
+  // Never ship the template's demo runtime data (or the pilot demo kit) into a real client.
+  await fs.rm(path.join(packageDir, "demo"), { recursive: true, force: true });
   await fs.rm(path.join(packageDir, "data"), { recursive: true, force: true });
   await fs.rm(path.join(packageDir, "public", "uploads"), { recursive: true, force: true });
   await fs.mkdir(path.join(packageDir, "data"), { recursive: true });

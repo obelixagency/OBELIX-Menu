@@ -1,0 +1,20 @@
+{
+  "branches": [
+    {
+      "id": "main",
+      "name": "فرع العليا",
+      "nameEn": "Olaya",
+      "slug": "main",
+      "active": true,
+      "sortOrder": 0
+    },
+    {
+      "id": "branch-maadi",
+      "name": "فرع الملقا",
+      "nameEn": "Al Malqa",
+      "slug": "malqa",
+      "active": true,
+      "sortOrder": 1
+    }
+  ]
+}

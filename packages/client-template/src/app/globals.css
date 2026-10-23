@@ -25,6 +25,8 @@
 html,
 body {
   overflow-x: hidden;
+  /* clip (not hidden) keeps position: sticky working; old browsers fall back to hidden */
+  overflow-x: clip;
   max-width: 100vw;
 }
 

@@ -46,7 +46,9 @@
     "cat-cold": "barista",
     "cat-breakfast": "kitchen",
     "cat-sweets": "kitchen",
-    "cat-food": "kitchen"
+    "cat-food": "kitchen",
+    "cat-arabic": "barista",
+    "cat-mains": "kitchen"
   },
   "settings": {
     "guestNoteEnabled": true,
