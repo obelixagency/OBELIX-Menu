@@ -1,0 +1,46 @@
+# Demo photo credits
+
+Photos from Unsplash (Unsplash License) and Pexels (Pexels License); both allow free commercial use. Cropped and compressed for the demo.
+
+- `banner-breakfast.jpg` — Vincent Yap (Unsplash): https://unsplash.com/photos/breakfast-spread-with-croissants-and-fruit-wrWGGlnN3kg
+- `banner-coffee.jpg` — Sergey Kotenev (Unsplash): https://unsplash.com/photos/a-cup-of-coffee-surrounded-by-coffee-beans-KU7PjmjArlQ
+- `banner-dessert.jpg` — Octavio Fossatti (Unsplash): https://unsplash.com/photos/orange-and-green-sushi-on-white-ceramic-tray-XUFpH8oe6NA
+- `basbousa.jpg` — Mohammad Fahim (Unsplash): https://unsplash.com/photos/rectangular-cake-with-nuts-on-top-on-a-white-plate-oyVe1GRV7K8
+- `beef-burger.jpg` — amirali mirhashemian (Unsplash): https://unsplash.com/photos/double-patty-cheeseburger-jh5XyK4Rr3Y
+- `brownies.jpg` — Anna Przepiorka (Unsplash): https://unsplash.com/photos/a-pile-of-brownies-sitting-on-top-of-a-white-plate-LjtviHokbr4
+- `butter-croissant.jpg` — Vicky Nguyen (Unsplash): https://unsplash.com/photos/a-croissant-sitting-on-top-of-a-cork-coaster-a4xoMVKzbak
+- `caesar-salad.jpg` — Monika Grabkowska (Unsplash): https://unsplash.com/photos/vegetable-salad-pCxJvSeSB5A
+- `cappuccino.jpg` — nameless 3791 (Unsplash): https://unsplash.com/photos/a-cup-of-coffee-with-latte-art-on-a-saucer-T3fFz5W0Foc
+- `cheese-omelette.jpg` — Amin Zabardast (Unsplash): https://unsplash.com/photos/omelette-with-salad-and-toast-served-on-a-plate-TpdD-DDOF6Q
+- `chicken-alfredo.jpg` — kimia kazemi (Unsplash): https://unsplash.com/photos/a-plate-of-pasta-971_E-LvZuc
+- `club-sandwich.jpg` — Orkun Orcan (Unsplash): https://unsplash.com/photos/a-white-plate-topped-with-a-cut-in-half-sandwich-and-fries-oBWEb-lAI60
+- `cold-brew.jpg` — Lachlan Wang (Unsplash): https://unsplash.com/photos/iced-coffee-in-a-clear-cup-on-a-wooden-table-ISRg1YMppPo
+- `cortado.jpg` — Esra Afşar (Unsplash): https://unsplash.com/photos/a-latte-with-intricate-foam-art-sits-on-a-saucer-25ivcdL4dwk
+- `cover-cafe.jpg` — Rizky Subagja (Unsplash): https://unsplash.com/photos/latte-croissant-and-book-on-cafe-table-1k7TnX5GAww
+- `crispy-chicken-sandwich.jpg` — David Foodphototasty (Unsplash): https://unsplash.com/photos/a-chicken-sandwich-with-lettuce-and-mayonnaise-on-a-black-background-VFVnZfogE7s
+- `date-cake.jpg` — Brett Wharton (Unsplash): https://unsplash.com/photos/a-table-with-two-plates-of-desserts-on-it-iwDDiUmsvhk
+- `egyptian-breakfast.jpg` — Afif Ramdhasuma (Pexels): https://www.pexels.com/photo/authentic-middle-eastern-mezze-platter-in-dubai-32401042/
+- `espresso.jpg` — Katt Galvan (Unsplash): https://unsplash.com/photos/a-cup-of-coffee-sitting-on-top-of-a-white-plate-3v0vppDjvMI
+- `flat-white.jpg` — Esra Afşar (Unsplash): https://unsplash.com/photos/a-latte-with-intricate-foam-art-on-a-saucer-Ls1r5zgq5vw
+- `foul-medames.jpg` — Anna Tarazevich (Pexels): https://www.pexels.com/photo/a-bowl-of-cooked-beans-with-lime-garnish-8479384/
+- `halloumi-sandwich.jpg` — Emma Miller (Unsplash): https://unsplash.com/photos/a-close-up-of-a-sandwich-with-tomatoes-and-lettuce-QJ2YWCcaVRQ
+- `hot-chocolate.jpg` — Giancarlo Duarte (Unsplash): https://unsplash.com/photos/photo-of-mug-with-hot-choco-RtHw0PWCLhw
+- `iced-latte.jpg` — Winston Chen (Unsplash): https://unsplash.com/photos/iced-coffee-with-milk-and-ice-in-a-glass-nIZl9PuwMXk
+- `iced-spanish-latte.jpg` — pariwat pannium (Unsplash): https://unsplash.com/photos/a-glass-filled-with-liquid-and-ice-on-top-of-a-table-rzX8bOle9xs
+- `karak-tea.jpg` — Mae Mu (Unsplash): https://unsplash.com/photos/white-mug-filled-with-brown-coffee-eNfR6MUyjBI
+- `kunafa.jpg` — Mohamed Olwy (Pexels): https://www.pexels.com/photo/delicious-kunafa-with-pistachios-and-mint-garnish-36691304/
+- `latte.jpg` — Puifai Sutawet (Unsplash): https://unsplash.com/photos/latte-cup-with-leaf-art-1q-Q_Os-WLQ
+- `lotus-cheesecake.jpg` — You Le (Unsplash): https://unsplash.com/photos/a-slice-of-cheesecake-with-cookies-on-a-plate-VgHPExv-MHI
+- `luqaimat.jpg` — Ranya Obeidallah (Pexels): https://www.pexels.com/photo/meal-in-a-bowl-16565238/
+- `mango-juice.jpg` — Alexander Mils (Unsplash): https://unsplash.com/photos/yellow-fruit-juice-on-glass-cup-pPhN8HFzkDE
+- `mint-lemonade.jpg` — Francesca Hotchin (Unsplash): https://unsplash.com/photos/lime-juice-on-drinking-glass-beside-sliced-limes-p5EiqkBYIEE
+- `mint-tea.jpg` — Robert Inze (Unsplash): https://unsplash.com/photos/a-cup-of-green-tea-with-a-spoon-in-it-Y5nKev_2lh8
+- `om-ali.jpg` — Alesia Kozik (Pexels): https://www.pexels.com/photo/close-up-shot-of-cheesecake-on-a-tray-6630120/
+- `orange-juice.jpg` — ABHISHEK HAJARE (Unsplash): https://unsplash.com/photos/orange-juice-in-clear-drinking-glass-kkrXVKK-jhg
+- `san-sebastian-cheesecake.jpg` — mahyar mirghasemi (Unsplash): https://unsplash.com/photos/a-piece-of-cake-on-a-plate-on-a-table-UXK8nucLFcY
+- `saudi-coffee.jpg` — Glenov Brankovic (Unsplash): https://unsplash.com/photos/a-group-of-small-wooden-cups-with-brown-objects-in-them-NjgXTtpH1fs
+- `shakshuka.jpg` — Jenn Kosar (Unsplash): https://unsplash.com/photos/cooked-meat-with-eggs-in-skillet-rzPVSqQjjqs
+- `strawberry-milkshake.jpg` — ikhsan baihaqi (Unsplash): https://unsplash.com/photos/pink-ice-cream-on-white-ceramic-plate-DlhfsnrX2es
+- `turkish-coffee.jpg` — Vincent Yap (Unsplash): https://unsplash.com/photos/coffee-cup-on-patterned-saucer-_2O2WlAUbKI
+- `v60.jpg` — Nadia Valko (Unsplash): https://unsplash.com/photos/pouring-hot-water-over-coffee-grounds-in-a-pour-over-brewer-F0XGFD9Z1Uk
+- `zaatar-croissant.jpg` — Cemrecan Yurtman (Unsplash): https://unsplash.com/photos/a-bunch-of-croissants-that-are-on-a-table-R6vx45dJRm8

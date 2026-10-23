@@ -710,6 +710,15 @@ function AddButton({ locale, onAdd, className }: { locale: Locale; onAdd: () => 
   );
 }
 
+/** "From 85" only when a choice can actually raise the price. */
+function optionsChangePrice(p: Product): boolean {
+  return (p.optionGroups || []).some((g) =>
+    g.values.some((v) =>
+      g.priceMode === "replace" ? v.price > p.price : v.price > 0
+    )
+  );
+}
+
 function ProductRow({
   product,
   category,
@@ -736,7 +745,7 @@ function ProductRow({
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-extrabold text-[var(--brand-ink)]">
-            {(product.optionGroups || []).length > 0
+            {optionsChangePrice(product)
               ? locale === "en"
                 ? `From ${formatPrice(pricing.final, currency, locale)}`
                 : `من ${formatPrice(pricing.final, currency, locale)}`
