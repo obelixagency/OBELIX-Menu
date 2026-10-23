@@ -1,0 +1,11 @@
+{
+  "stationRouting": {
+    "cat-hot": "barista",
+    "cat-arabic": "barista",
+    "cat-cold": "barista",
+    "cat-breakfast": "kitchen",
+    "cat-mains": "kitchen",
+    "cat-sweets": "kitchen",
+    "cat-food": "kitchen"
+  }
+}

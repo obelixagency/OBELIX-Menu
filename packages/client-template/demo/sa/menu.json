@@ -1,0 +1,714 @@
+{
+  "categories": [
+    {
+      "id": "cat-drinks",
+      "name": "المشروبات",
+      "nameEn": "Drinks",
+      "parentId": null,
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "cat-hot",
+      "name": "القهوة المختصة",
+      "nameEn": "Specialty coffee",
+      "parentId": "cat-drinks",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "cat-arabic",
+      "name": "قهوة سعودية وشاي",
+      "nameEn": "Saudi coffee & tea",
+      "parentId": "cat-drinks",
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "cat-cold",
+      "name": "مشروبات باردة",
+      "nameEn": "Cold drinks",
+      "parentId": "cat-drinks",
+      "sortOrder": 3,
+      "active": true
+    },
+    {
+      "id": "cat-food",
+      "name": "الأكل",
+      "nameEn": "Food",
+      "parentId": null,
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "cat-breakfast",
+      "name": "الفطور",
+      "nameEn": "Breakfast",
+      "parentId": "cat-food",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "id": "cat-mains",
+      "name": "ساندويتشات وأطباق",
+      "nameEn": "Sandwiches & mains",
+      "parentId": "cat-food",
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "id": "cat-sweets",
+      "name": "الحلى",
+      "nameEn": "Desserts",
+      "parentId": "cat-food",
+      "sortOrder": 3,
+      "active": true
+    }
+  ],
+  "products": [
+    {
+      "id": "s1",
+      "categoryId": "cat-hot",
+      "name": "إسبريسو",
+      "nameEn": "Espresso",
+      "description": "دبل شوت من محصول إثيوبي مختص",
+      "descriptionEn": "Double shot of Ethiopian specialty beans",
+      "price": 12,
+      "image": "/uploads/demo-espresso.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 1
+    },
+    {
+      "id": "s2",
+      "categoryId": "cat-hot",
+      "name": "كورتادو",
+      "nameEn": "Cortado",
+      "description": "إسبريسو مع كمية مساوية من الحليب المبخّر",
+      "descriptionEn": "Espresso cut with an equal part of steamed milk",
+      "price": 15,
+      "image": "/uploads/demo-cortado.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 2,
+      "optionGroups": [
+        {
+          "id": "milk",
+          "name": "نوع اللبن",
+          "nameEn": "Milk",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "full",
+              "name": "لبن كامل الدسم",
+              "nameEn": "Whole milk",
+              "price": 0
+            },
+            {
+              "id": "skim",
+              "name": "لبن خالي الدسم",
+              "nameEn": "Skimmed",
+              "price": 0
+            },
+            {
+              "id": "oat",
+              "name": "لبن الشوفان",
+              "nameEn": "Oat milk",
+              "price": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "categoryId": "cat-hot",
+      "name": "فلات وايت",
+      "nameEn": "Flat white",
+      "description": "دبل ريستريتو مع حليب مخملي",
+      "descriptionEn": "Double ristretto with velvety milk",
+      "price": 17,
+      "image": "/uploads/demo-flat-white.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3,
+      "optionGroups": [
+        {
+          "id": "milk",
+          "name": "نوع اللبن",
+          "nameEn": "Milk",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "full",
+              "name": "لبن كامل الدسم",
+              "nameEn": "Whole milk",
+              "price": 0
+            },
+            {
+              "id": "skim",
+              "name": "لبن خالي الدسم",
+              "nameEn": "Skimmed",
+              "price": 0
+            },
+            {
+              "id": "oat",
+              "name": "لبن الشوفان",
+              "nameEn": "Oat milk",
+              "price": 4
+            }
+          ]
+        },
+        {
+          "id": "shot",
+          "name": "إضافات",
+          "nameEn": "Extras",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "none",
+              "name": "بدون",
+              "nameEn": "None",
+              "price": 0
+            },
+            {
+              "id": "shot",
+              "name": "شوت إسبريسو زيادة",
+              "nameEn": "Extra espresso shot",
+              "price": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "categoryId": "cat-hot",
+      "name": "سبانش لاتيه",
+      "nameEn": "Spanish latte",
+      "description": "إسبريسو مع حليب مكثّف محلّى، الأكثر طلباً",
+      "descriptionEn": "Espresso with sweetened condensed milk, our best seller",
+      "price": 19,
+      "image": "/uploads/demo-latte.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 4,
+      "optionGroups": [
+        {
+          "id": "size",
+          "name": "الحجم",
+          "nameEn": "Size",
+          "required": true,
+          "priceMode": "replace",
+          "values": [
+            {
+              "id": "r",
+              "name": "عادي",
+              "nameEn": "Regular",
+              "price": 19
+            },
+            {
+              "id": "l",
+              "name": "كبير",
+              "nameEn": "Large",
+              "price": 23
+            }
+          ]
+        },
+        {
+          "id": "milk",
+          "name": "نوع اللبن",
+          "nameEn": "Milk",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "full",
+              "name": "لبن كامل الدسم",
+              "nameEn": "Whole milk",
+              "price": 0
+            },
+            {
+              "id": "skim",
+              "name": "لبن خالي الدسم",
+              "nameEn": "Skimmed",
+              "price": 0
+            },
+            {
+              "id": "oat",
+              "name": "لبن الشوفان",
+              "nameEn": "Oat milk",
+              "price": 4
+            }
+          ]
+        },
+        {
+          "id": "shot",
+          "name": "إضافات",
+          "nameEn": "Extras",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "none",
+              "name": "بدون",
+              "nameEn": "None",
+              "price": 0
+            },
+            {
+              "id": "shot",
+              "name": "شوت إسبريسو زيادة",
+              "nameEn": "Extra espresso shot",
+              "price": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "categoryId": "cat-hot",
+      "name": "V60",
+      "nameEn": "V60 pour-over",
+      "description": "تقطير يدوي من محصول اليوم، اسأل الباريستا عن الإيحاءات",
+      "descriptionEn": "Hand-brewed filter coffee of the day",
+      "price": 22,
+      "image": "/uploads/demo-v60.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 5
+    },
+    {
+      "id": "s6",
+      "categoryId": "cat-arabic",
+      "name": "قهوة سعودية (دلّة)",
+      "nameEn": "Saudi coffee (dallah)",
+      "description": "قهوة خولاني بالهيل والزعفران، تقدّم مع تمر سكري",
+      "descriptionEn": "Khawlani coffee with cardamom and saffron, served with Sukkari dates",
+      "price": 25,
+      "image": "/uploads/demo-saudi-coffee.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "s7",
+      "categoryId": "cat-arabic",
+      "name": "شاي كرك",
+      "nameEn": "Karak tea",
+      "description": "شاي بالحليب والهيل والزعفران",
+      "descriptionEn": "Spiced milk tea with cardamom and saffron",
+      "price": 9,
+      "image": "/uploads/demo-karak-tea.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    },
+    {
+      "id": "s8",
+      "categoryId": "cat-arabic",
+      "name": "شاي بالنعناع",
+      "nameEn": "Mint tea",
+      "description": "شاي أحمر مع نعناع مديني طازج",
+      "descriptionEn": "Black tea with fresh Madinah mint",
+      "price": 10,
+      "image": "/uploads/demo-mint-tea.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3
+    },
+    {
+      "id": "s9",
+      "categoryId": "cat-cold",
+      "name": "آيس سبانش لاتيه",
+      "nameEn": "Iced Spanish latte",
+      "description": "إسبريسو وحليب مكثّف على ثلج",
+      "descriptionEn": "Espresso and condensed milk over ice",
+      "price": 21,
+      "image": "/uploads/demo-iced-spanish-latte.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 1,
+      "optionGroups": [
+        {
+          "id": "size",
+          "name": "الحجم",
+          "nameEn": "Size",
+          "required": true,
+          "priceMode": "replace",
+          "values": [
+            {
+              "id": "r",
+              "name": "عادي",
+              "nameEn": "Regular",
+              "price": 21
+            },
+            {
+              "id": "l",
+              "name": "كبير",
+              "nameEn": "Large",
+              "price": 25
+            }
+          ]
+        },
+        {
+          "id": "milk",
+          "name": "نوع اللبن",
+          "nameEn": "Milk",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "full",
+              "name": "لبن كامل الدسم",
+              "nameEn": "Whole milk",
+              "price": 0
+            },
+            {
+              "id": "skim",
+              "name": "لبن خالي الدسم",
+              "nameEn": "Skimmed",
+              "price": 0
+            },
+            {
+              "id": "oat",
+              "name": "لبن الشوفان",
+              "nameEn": "Oat milk",
+              "price": 4
+            }
+          ]
+        },
+        {
+          "id": "shot",
+          "name": "إضافات",
+          "nameEn": "Extras",
+          "required": false,
+          "priceMode": "delta",
+          "values": [
+            {
+              "id": "none",
+              "name": "بدون",
+              "nameEn": "None",
+              "price": 0
+            },
+            {
+              "id": "shot",
+              "name": "شوت إسبريسو زيادة",
+              "nameEn": "Extra espresso shot",
+              "price": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s10",
+      "categoryId": "cat-cold",
+      "name": "كولد برو",
+      "nameEn": "Cold brew",
+      "description": "منقوع على البارد 18 ساعة، طعم ناعم وقليل الحموضة",
+      "descriptionEn": "Steeped cold for 18 hours, smooth and low in acidity",
+      "price": 19,
+      "image": "/uploads/demo-cold-brew.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    },
+    {
+      "id": "s11",
+      "categoryId": "cat-cold",
+      "name": "موهيتو ليمون ونعناع",
+      "nameEn": "Lemon mint mojito",
+      "description": "ليمون ونعناع وصودا، بدون كحول",
+      "descriptionEn": "Lime, mint and soda, alcohol-free",
+      "price": 18,
+      "image": "/uploads/demo-mint-lemonade.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3
+    },
+    {
+      "id": "s12",
+      "categoryId": "cat-cold",
+      "name": "عصير برتقال طازج",
+      "nameEn": "Fresh orange juice",
+      "description": "برتقال معصور عند الطلب",
+      "descriptionEn": "Squeezed to order",
+      "price": 16,
+      "image": "/uploads/demo-orange-juice.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 4
+    },
+    {
+      "id": "s13",
+      "categoryId": "cat-breakfast",
+      "name": "شكشوكة",
+      "nameEn": "Shakshuka",
+      "description": "بيض مطهو في صلصة طماطم وفلفل، مع خبز محمّص",
+      "descriptionEn": "Eggs in spiced tomato and pepper sauce, with toast",
+      "price": 28,
+      "image": "/uploads/demo-shakshuka.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "s14",
+      "categoryId": "cat-breakfast",
+      "name": "فول بالسمن",
+      "nameEn": "Foul with ghee",
+      "description": "فول مدمّس بالسمن البري والكمون، مع خبز تميس",
+      "descriptionEn": "Slow-cooked fava beans with ghee and cumin, with tamees bread",
+      "price": 18,
+      "image": "/uploads/demo-foul-medames.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    },
+    {
+      "id": "s15",
+      "categoryId": "cat-breakfast",
+      "name": "كرواسون زعتر وجبن",
+      "nameEn": "Za'atar & cheese croissant",
+      "description": "كرواسون زبدة محشي جبن عكاوي وزعتر",
+      "descriptionEn": "Butter croissant with akkawi cheese and za'atar",
+      "price": 14,
+      "image": "/uploads/demo-zaatar-croissant.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3
+    },
+    {
+      "id": "s16",
+      "categoryId": "cat-mains",
+      "name": "ساندويتش حلومي",
+      "nameEn": "Halloumi sandwich",
+      "description": "حلومي مشوي، طماطم، خيار وزعتر في خبز ساوردو",
+      "descriptionEn": "Grilled halloumi, tomato, cucumber and za'atar on sourdough",
+      "price": 29,
+      "image": "/uploads/demo-halloumi-sandwich.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 1
+    },
+    {
+      "id": "s17",
+      "categoryId": "cat-mains",
+      "name": "برجر واغيو",
+      "nameEn": "Wagyu burger",
+      "description": "لحم واغيو 160 جرام، جبن شيدر وصوص خاص، مع بطاطس",
+      "descriptionEn": "160 g wagyu patty, cheddar and house sauce, with fries",
+      "price": 49,
+      "image": "/uploads/demo-beef-burger.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 2,
+      "prepEnabled": true
+    },
+    {
+      "id": "s18",
+      "categoryId": "cat-mains",
+      "name": "ساندويتش دجاج كرسبي",
+      "nameEn": "Crispy chicken sandwich",
+      "description": "صدر دجاج مقرمش، كول سلو وصوص رانش، مع بطاطس",
+      "descriptionEn": "Crispy chicken breast, coleslaw and ranch, with fries",
+      "price": 36,
+      "image": "/uploads/demo-crispy-chicken-sandwich.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3,
+      "prepEnabled": true
+    },
+    {
+      "id": "s19",
+      "categoryId": "cat-mains",
+      "name": "باستا ألفريدو بالدجاج",
+      "nameEn": "Chicken Alfredo pasta",
+      "description": "فيتوتشيني بصوص كريمة وبارميزان ودجاج مشوي",
+      "descriptionEn": "Fettuccine in parmesan cream with grilled chicken",
+      "price": 42,
+      "image": "/uploads/demo-chicken-alfredo.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 4
+    },
+    {
+      "id": "s20",
+      "categoryId": "cat-sweets",
+      "name": "سان سباستيان تشيز كيك",
+      "nameEn": "San Sebastián cheesecake",
+      "description": "تشيز كيك محروق الوجه بقوام كريمي",
+      "descriptionEn": "Burnt Basque cheesecake with a creamy center",
+      "price": 28,
+      "image": "/uploads/demo-san-sebastian-cheesecake.jpg",
+      "available": true,
+      "featured": true,
+      "sortOrder": 1,
+      "discountType": "price",
+      "discountValue": 24
+    },
+    {
+      "id": "s21",
+      "categoryId": "cat-sweets",
+      "name": "كنافة بالجبن",
+      "nameEn": "Kunafa with cheese",
+      "description": "كنافة ناعمة محشية جبن، تقدّم ساخنة",
+      "descriptionEn": "Fine kunafa filled with cheese, served warm",
+      "price": 26,
+      "image": "/uploads/demo-kunafa.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 2
+    },
+    {
+      "id": "s22",
+      "categoryId": "cat-sweets",
+      "name": "كيكة التمر",
+      "nameEn": "Date cake",
+      "description": "كيكة تمر بصوص الكراميل المملح",
+      "descriptionEn": "Date cake with salted caramel sauce",
+      "price": 22,
+      "image": "/uploads/demo-date-cake.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 3
+    },
+    {
+      "id": "s23",
+      "categoryId": "cat-sweets",
+      "name": "لقيمات",
+      "nameEn": "Luqaimat",
+      "description": "لقيمات مقرمشة بدبس التمر والسمسم",
+      "descriptionEn": "Crispy dough bites with date syrup and sesame",
+      "price": 18,
+      "image": "/uploads/demo-luqaimat.jpg",
+      "available": true,
+      "featured": false,
+      "sortOrder": 4
+    }
+  ],
+  "contacts": [
+    {
+      "id": "c-wa",
+      "type": "whatsapp",
+      "label": "",
+      "value": "966500000000",
+      "active": true
+    },
+    {
+      "id": "c-phone",
+      "type": "phone",
+      "label": "",
+      "value": "+966500000000",
+      "active": true
+    },
+    {
+      "id": "c-ig",
+      "type": "instagram",
+      "label": "",
+      "value": "https://instagram.com/obelixagency",
+      "active": true
+    },
+    {
+      "id": "c-map",
+      "type": "maps",
+      "label": "",
+      "value": "https://maps.google.com/?q=Riyadh",
+      "active": true
+    }
+  ],
+  "reviews": [
+    {
+      "id": "r1",
+      "rating": 5,
+      "overall": 5,
+      "name": "عبدالله ف.",
+      "comment": "السبانش لاتيه ممتاز والطلب من الجوال سريع جداً.",
+      "productId": "s4",
+      "createdAt": "2026-10-10T10:00:00.000Z",
+      "visible": true
+    },
+    {
+      "id": "r2",
+      "rating": 5,
+      "overall": 5,
+      "name": "نورة ق.",
+      "comment": "القهوة السعودية بالزعفران مع التمر تجربة رائعة.",
+      "productId": "s6",
+      "createdAt": "2026-10-11T11:00:00.000Z",
+      "visible": true
+    },
+    {
+      "id": "r3",
+      "rating": 4,
+      "overall": 4,
+      "name": "فهد ع.",
+      "comment": "برجر الواغيو لذيذ والأسعار واضحة شاملة الضريبة.",
+      "productId": "s17",
+      "createdAt": "2026-10-12T12:00:00.000Z",
+      "visible": true
+    },
+    {
+      "id": "r4",
+      "rating": 5,
+      "overall": 5,
+      "name": "ريم س.",
+      "comment": "السان سباستيان من أفضل ما جربت في الرياض.",
+      "productId": "s20",
+      "createdAt": "2026-10-13T13:00:00.000Z",
+      "visible": true
+    }
+  ],
+  "banners": [
+    {
+      "id": "bn-coffee",
+      "imageUrl": "/uploads/demo-banner-coffee.jpg",
+      "title": "سبانش لاتيه بـ 19 ر.س",
+      "titleEn": "Spanish latte, SAR 19",
+      "subtitle": "قهوة مختصة محمّصة في الرياض",
+      "subtitleEn": "Specialty coffee roasted in Riyadh",
+      "productId": "s4",
+      "sortOrder": 1,
+      "active": true,
+      "startsAt": null,
+      "endsAt": null
+    },
+    {
+      "id": "bn-dessert",
+      "imageUrl": "/uploads/demo-banner-dessert.jpg",
+      "title": "سان سباستيان بـ 24 ر.س بدل 28",
+      "titleEn": "San Sebastián cheesecake, SAR 24 instead of 28",
+      "subtitle": "عرض الأسبوع",
+      "subtitleEn": "This week's offer",
+      "productId": "s20",
+      "sortOrder": 2,
+      "active": true,
+      "startsAt": null,
+      "endsAt": null
+    },
+    {
+      "id": "bn-breakfast",
+      "imageUrl": "/uploads/demo-banner-breakfast.jpg",
+      "title": "فطور الصباح",
+      "titleEn": "Morning breakfast",
+      "subtitle": "شكشوكة، فول بالسمن وكرواسون زعتر من 7 إلى 12",
+      "subtitleEn": "Shakshuka, foul and za'atar croissant, 7 am to noon",
+      "productId": "s13",
+      "sortOrder": 3,
+      "active": true,
+      "startsAt": null,
+      "endsAt": null
+    }
+  ],
+  "meta": {
+    "promoEnabled": true,
+    "cafe": "بيت القهوة",
+    "city": "الرياض",
+    "demoVariant": "sa",
+    "note": "OBELIX Menu pilot demo — Saudi Arabia (SAR, VAT 15% inclusive)"
+  }
+}

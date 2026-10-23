@@ -1,0 +1,15 @@
+{
+  "displayName": "قهوة البيت",
+  "slogan": "قهوة وفطار وأكل بيتي · القاهرة",
+  "sloganEn": "Coffee, breakfast & comfort food · Cairo",
+  "logoUrl": "/uploads/demo-logo-eg.svg",
+  "menuBackgroundUrl": "/uploads/demo-cover-cafe.jpg",
+  "currency": "EGP",
+  "taxPercent": 0,
+  "taxInclusive": true,
+  "colors": {
+    "primary": "#5C3A1E",
+    "accent": "#D4A017",
+    "surface": "#F7F1E8"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "branches": [
+    {
+      "id": "main",
+      "name": "فرع الزمالك",
+      "nameEn": "Zamalek",
+      "slug": "main",
+      "active": true,
+      "sortOrder": 0
+    },
+    {
+      "id": "branch-maadi",
+      "name": "فرع المعادي",
+      "nameEn": "Maadi",
+      "slug": "maadi",
+      "active": true,
+      "sortOrder": 1
+    }
+  ]
+}

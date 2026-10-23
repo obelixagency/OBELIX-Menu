@@ -144,6 +144,15 @@ export type Review = {
 export type Banner = {
   id: string;
   imageUrl: string;
+  /** Optional portrait/narrow crop shown on phones instead of imageUrl */
+  imageUrlMobile?: string | null;
+  /** Optional text drawn over the image (never baked in, so it never gets cropped) */
+  title?: string | null;
+  titleEn?: string | null;
+  subtitle?: string | null;
+  subtitleEn?: string | null;
+  /** Tapping the banner opens this item */
+  productId?: string | null;
   sortOrder: number;
   active: boolean;
   startsAt?: string | null;

@@ -21,7 +21,8 @@ export function formatPrice(
 ): string {
   const code = (currency || "EGP").toUpperCase();
   const meta = CURRENCY_LABELS[code];
-  const amount = price.toFixed(2);
+  // Whole prices read like a printed menu (45 ج.م); fractions keep two places (21.50 SAR).
+  const amount = Number.isInteger(Math.round(price * 100) / 100) ? String(Math.round(price)) : price.toFixed(2);
   if (!meta) return `${amount} ${code}`;
   const label = locale === "en" ? meta.en : meta.ar;
   return meta.suffix ? `${amount} ${label}` : `${label}${amount}`;

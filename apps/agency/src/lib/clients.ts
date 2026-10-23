@@ -75,7 +75,7 @@ export async function createClient(
     throw new Error("هذا الـ slug مستخدم بالفعل");
   }
   // Slugs become URL paths on the OBELIX host (menu.obelixagency.com/<slug>).
-  const RESERVED = new Set(["login", "logout", "api", "clients", "pilot", "uploads", "_next", "dashboard", "static", "icons", "generated", "tmp"]);
+  const RESERVED = new Set(["login", "logout", "api", "clients", "pilot", "pilot-sa", "uploads", "_next", "dashboard", "static", "icons", "generated", "tmp"]);
   if (RESERVED.has(slug)) {
     throw new Error("الـ slug ده محجوز للنظام — اختار اسم تاني");
   }

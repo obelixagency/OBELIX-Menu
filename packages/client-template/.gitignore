@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pilot demo photos are copied in by scripts/demo-seed.mjs
+/public/uploads/demo-*
+/data/*.bak-*

@@ -103,7 +103,7 @@ export default async function ItemPage({ params, searchParams }: Ctx) {
           )}
           <Link
             href="/"
-            className="absolute start-3 top-3 min-h-11 rounded-full bg-black/50 px-4 text-sm font-medium text-white backdrop-blur"
+            className="absolute start-3 top-3 flex min-h-11 items-center rounded-full bg-black/50 px-4 text-sm font-medium text-white backdrop-blur"
           >
             {locale === "en" ? "Back" : "رجوع"}
           </Link>

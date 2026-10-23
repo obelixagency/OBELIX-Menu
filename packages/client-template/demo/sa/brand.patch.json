@@ -1,0 +1,16 @@
+{
+  "displayName": "بيت القهوة",
+  "slogan": "قهوة مختصة وفطور · الرياض",
+  "sloganEn": "Specialty coffee & breakfast · Riyadh",
+  "logoUrl": "/uploads/demo-logo-sa.svg",
+  "menuBackgroundUrl": "/uploads/demo-cover-cafe.jpg",
+  "currency": "SAR",
+  "taxPercent": 15,
+  "taxInclusive": true,
+  "taxNumber": "300000000000003",
+  "colors": {
+    "primary": "#1F4E3D",
+    "accent": "#C9A227",
+    "surface": "#F4F2EC"
+  }
+}

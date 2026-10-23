@@ -21,12 +21,34 @@ Same command. Updates **never** overwrite `data/`, `public/uploads/` or `.env` o
 server, and a backup is saved to `~/obelix-backups/<slug>-<timestamp>/` first.
 Pilot: `./scripts/deploy-client.sh packages/client-template`
 
+## Pilot demos (Egypt + Saudi)
+Two public demos run the same code with different data:
+
+| Demo | URL | Money |
+|------|-----|-------|
+| Egypt | `menu.obelixagency.com/pilot` | EGP, no VAT |
+| Saudi | `menu.obelixagency.com/pilot-sa` | SAR, VAT 15% included |
+
+Demo content lives in `packages/client-template/demo/` (`generate.py` writes `eg/` and `sa/`;
+photos in `demo/photos/`, credits in `demo/photos/CREDITS.md`).
+
+```bash
+./scripts/deploy-client.sh packages/client-template   # /pilot code (data kept)
+./scripts/push-demo-data.sh eg                        # /pilot items, photos, banners, brand look
+./scripts/deploy-pilot-sa.sh                          # /pilot-sa code (first run also ships SA data)
+./scripts/push-demo-data.sh sa                        # /pilot-sa refresh demo content later
+```
+`push-demo-data.sh` backs up `data/` + `public/uploads/` to `~/obelix-backups/<slug>-demo-<stamp>/`
+first, replaces `menu.json`, and only merges look/money fields into `brand.json`
+(password, ordering flags, orders and tables are kept). Locally:
+`node scripts/demo-seed.mjs eg packages/client-template`.
+
 ## Agency redeploys
 When redeploying the agency app into `~/domains/menu.obelixagency.com/public_html`,
-**exclude every client folder** (`/pilot` and each `/<slug>`), or you will delete clients.
+**exclude every client folder** (`/pilot`, `/pilot-sa` and each `/<slug>`), or you will delete clients.
 
 ## Reserved slugs
-login, logout, api, clients, pilot, uploads, _next, dashboard, static, icons, generated, tmp
+login, logout, api, clients, pilot, pilot-sa, uploads, _next, dashboard, static, icons, generated, tmp
 
 ## Server hardening (applied live 22 Oct 2026)
 Apache serves any file that physically exists under `public_html`, before Passenger.
