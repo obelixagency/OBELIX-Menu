@@ -1,0 +1,366 @@
+{
+  "tts_provider": "gemini",
+  "voice_id": "Achird",
+  "bgm": null,
+  "bgm_pending": false,
+  "bgm_provider": null,
+  "bgm_pid": null,
+  "bgm_log": null,
+  "bgm_mode": null,
+  "bgm_target_duration_s": null,
+  "bgm_seed_duration_s": null,
+  "bgm_loop_count": null,
+  "voices": [
+    {
+      "id": "all",
+      "path": "assets/voice/all.wav",
+      "duration_s": 23.72,
+      "words": [
+        {
+          "id": "w0",
+          "text": "Change",
+          "start": 0.26,
+          "end": 0.51
+        },
+        {
+          "id": "w1",
+          "text": "a",
+          "start": 0.51,
+          "end": 0.53
+        },
+        {
+          "id": "w2",
+          "text": "price,",
+          "start": 0.64,
+          "end": 1.12
+        },
+        {
+          "id": "w3",
+          "text": "take",
+          "start": 1.41,
+          "end": 1.49
+        },
+        {
+          "id": "w4",
+          "text": "an",
+          "start": 1.49,
+          "end": 1.63
+        },
+        {
+          "id": "w5",
+          "text": "order.",
+          "start": 1.63,
+          "end": 2.95
+        },
+        {
+          "id": "w6",
+          "text": "Need",
+          "start": 2.95,
+          "end": 3.26
+        },
+        {
+          "id": "w7",
+          "text": "a",
+          "start": 3.26,
+          "end": 3.3
+        },
+        {
+          "id": "w8",
+          "text": "new",
+          "start": 3.32,
+          "end": 3.49
+        },
+        {
+          "id": "w9",
+          "text": "price?",
+          "start": 3.49,
+          "end": 3.99
+        },
+        {
+          "id": "w10",
+          "text": "Open",
+          "start": 4.26,
+          "end": 4.3
+        },
+        {
+          "id": "w11",
+          "text": "the",
+          "start": 4.3,
+          "end": 4.53
+        },
+        {
+          "id": "w12",
+          "text": "item,",
+          "start": 4.53,
+          "end": 4.99
+        },
+        {
+          "id": "w13",
+          "text": "type",
+          "start": 4.99,
+          "end": 5.12
+        },
+        {
+          "id": "w14",
+          "text": "it",
+          "start": 5.41,
+          "end": 5.53
+        },
+        {
+          "id": "w15",
+          "text": "in,",
+          "start": 5.6,
+          "end": 5.89
+        },
+        {
+          "id": "w16",
+          "text": "hit",
+          "start": 5.89,
+          "end": 6.3
+        },
+        {
+          "id": "w17",
+          "text": "save.",
+          "start": 6.3,
+          "end": 7
+        },
+        {
+          "id": "w18",
+          "text": "That's",
+          "start": 7.26,
+          "end": 7.74
+        },
+        {
+          "id": "w19",
+          "text": "it.",
+          "start": 7.74,
+          "end": 8
+        },
+        {
+          "id": "w20",
+          "text": "And",
+          "start": 8,
+          "end": 8.26
+        },
+        {
+          "id": "w21",
+          "text": "your",
+          "start": 8.26,
+          "end": 8.54
+        },
+        {
+          "id": "w22",
+          "text": "guest's",
+          "start": 8.64,
+          "end": 9.12
+        },
+        {
+          "id": "w23",
+          "text": "menu",
+          "start": 9.12,
+          "end": 9.42
+        },
+        {
+          "id": "w24",
+          "text": "updates",
+          "start": 9.45,
+          "end": 9.89
+        },
+        {
+          "id": "w25",
+          "text": "instantly.",
+          "start": 10,
+          "end": 11
+        },
+        {
+          "id": "w26",
+          "text": "Guests",
+          "start": 11.26,
+          "end": 11.44
+        },
+        {
+          "id": "w27",
+          "text": "order",
+          "start": 11.44,
+          "end": 11.81
+        },
+        {
+          "id": "w28",
+          "text": "from",
+          "start": 11.81,
+          "end": 12.1
+        },
+        {
+          "id": "w29",
+          "text": "their",
+          "start": 12.1,
+          "end": 12.47
+        },
+        {
+          "id": "w30",
+          "text": "phone,",
+          "start": 12.47,
+          "end": 12.89
+        },
+        {
+          "id": "w31",
+          "text": "pick",
+          "start": 12.89,
+          "end": 13.28
+        },
+        {
+          "id": "w32",
+          "text": "their",
+          "start": 13.28,
+          "end": 13.63
+        },
+        {
+          "id": "w33",
+          "text": "table,",
+          "start": 13.63,
+          "end": 14.13
+        },
+        {
+          "id": "w34",
+          "text": "and",
+          "start": 14.13,
+          "end": 14.33
+        },
+        {
+          "id": "w35",
+          "text": "confirm.",
+          "start": 14.47,
+          "end": 15
+        },
+        {
+          "id": "w36",
+          "text": "The",
+          "start": 15.02,
+          "end": 15.11
+        },
+        {
+          "id": "w37",
+          "text": "order",
+          "start": 15.26,
+          "end": 15.43
+        },
+        {
+          "id": "w38",
+          "text": "lands",
+          "start": 15.43,
+          "end": 15.7
+        },
+        {
+          "id": "w39",
+          "text": "on",
+          "start": 15.7,
+          "end": 15.8
+        },
+        {
+          "id": "w40",
+          "text": "your",
+          "start": 15.8,
+          "end": 16
+        },
+        {
+          "id": "w41",
+          "text": "dashboard",
+          "start": 16,
+          "end": 16.49
+        },
+        {
+          "id": "w42",
+          "text": "right",
+          "start": 16.49,
+          "end": 16.76
+        },
+        {
+          "id": "w43",
+          "text": "away,",
+          "start": 16.76,
+          "end": 17.11
+        },
+        {
+          "id": "w44",
+          "text": "with",
+          "start": 17.11,
+          "end": 17.34
+        },
+        {
+          "id": "w45",
+          "text": "a",
+          "start": 17.34,
+          "end": 17.39
+        },
+        {
+          "id": "w46",
+          "text": "sound",
+          "start": 17.39,
+          "end": 17.68
+        },
+        {
+          "id": "w47",
+          "text": "alert,",
+          "start": 17.68,
+          "end": 18.31
+        },
+        {
+          "id": "w48",
+          "text": "ready",
+          "start": 18.47,
+          "end": 19.09
+        },
+        {
+          "id": "w49",
+          "text": "to",
+          "start": 19.09,
+          "end": 19.34
+        },
+        {
+          "id": "w50",
+          "text": "prepare.",
+          "start": 19.66,
+          "end": 21
+        },
+        {
+          "id": "w51",
+          "text": "Obelix",
+          "start": 21.2,
+          "end": 21.53
+        },
+        {
+          "id": "w52",
+          "text": "Menu.",
+          "start": 21.64,
+          "end": 22
+        },
+        {
+          "id": "w53",
+          "text": "Try",
+          "start": 22.26,
+          "end": 22.27
+        },
+        {
+          "id": "w54",
+          "text": "the",
+          "start": 22.27,
+          "end": 22.54
+        },
+        {
+          "id": "w55",
+          "text": "dashboard",
+          "start": 22.64,
+          "end": 23.1
+        },
+        {
+          "id": "w56",
+          "text": "free.",
+          "start": 23.46,
+          "end": 23.89
+        }
+      ]
+    }
+  ],
+  "sfx": [],
+  "total_duration_s": 23.72
+}
